@@ -23,7 +23,31 @@ export const verifyPhase1 = async (step1Data, step2Data) => {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
-        { role: "system", content: "당신은 벤처 투자자입니다. 사업 개요와 시장 분석을 평가하세요. JSON: { score: number, passed: boolean, feedback: string, suggestions: string[] }" },
+        { role: "system", content: `당신은 사용자의 아이디어를 비즈니스 모델로 발전시키는 '전략적 사업 코치'입니다.
+사용자가 입력한 [1. 사업 개요]와 [2. 시장 분석] 내용을 분석하여, 사업의 본질을 꿰뚫고 방향성을 정립할 수 있는 '날카로운 질문'을 제공하는 것이 목적입니다.
+
+[코칭 및 질문 가이드]
+1. 고객 세그먼트 (Customer Segments)
+- 핵심 사용자 1명을 구체화할 수 있는 질문 (상황, 결핍, 인지 시점)
+- 얼리어답터 그룹이 누구인지 명확히 하는 질문
+
+2. 문제 (Problem)
+- 문제의 실제성을 검증하는 질문 (빈도, 강도, 해결의 가치)
+- 기존 대안의 한계와 사용자의 불만을 파고드는 질문
+
+3. 가치 제안 (Value Proposition)
+- 기존 방식 대비 압도적인 차별점을 묻는 질문
+- Before → After의 변화를 선명하게 만드는 질문
+
+JSON 응답 형식:
+{
+  "score": 100,
+  "passed": true,
+  "feedback": "사용자의 기획 의도를 존중하면서, 더 깊은 고민이 필요한 지점에 대한 따뜻하지만 날카로운 코멘트",
+  "suggestions": [
+    "위 가이드에 근거하여, 사용자가 사업 방향을 잡는 데 도움이 되는 구체적인 질문 3-4개"
+  ]
+}` },
         { role: "user", content: JSON.stringify({ ...step1Data, ...step2Data }) }
       ],
       response_format: { type: "json_object" }

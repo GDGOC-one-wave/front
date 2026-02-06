@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { verifyPhase1, simulateBM, evaluatePlan, chatWithMentor } from '../services/ai';
+import { verifyPhase1, simulateBM, evaluatePlan, chatWithMentor, getGuidedQuestions } from '../services/ai';
 import { saveProject, getProjectById, updateProjectStatus, removeRecruitmentByProjectId } from '../services/storage';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { 
   Loader2, ArrowRight, MessageSquare, LineChart, Send, 
   LayoutGrid, Users, Target, Zap, DollarSign,
-  CheckCircle, Lock, AlertCircle, RefreshCw, PlayCircle, Bot, User, FileText, PlusCircle
+  CheckCircle, Lock, AlertCircle, RefreshCw, PlayCircle, Bot, User, FileText, PlusCircle, HelpCircle
 } from 'lucide-react';
 
 const STEPS = [
@@ -17,6 +17,40 @@ const STEPS = [
   { id: 4, title: '마케팅 전략', icon: <Users size={18}/> },
   { id: 5, title: '재무 계획', icon: <DollarSign size={18}/> },
 ];
+
+const ALL_FIELD_IDS = [
+  '1-1', '1-2', '1-3', 
+  '2-1', '2-2', '2-3', 
+  '3-1', '3-2', '3-3', 
+  '4-1', '4-2', 
+  '5-1', '5-2'
+];
+
+const FIELD_DATA = {
+  1: [
+    { id: '1-1', label: '1-1. 창업 아이템의 명칭', placeholder: "예: 창업메이트" },
+    { id: '1-2', label: '1-2. 아이템의 핵심 기능 및 가치', placeholder: "예: AI 기반 가이드", rows: 4 },
+    { id: '1-3', label: '1-3. 타겟 고객 및 시장 페르소나', placeholder: "예: 대학생 창업자", rows: 4 }
+  ],
+  2: [
+    { id: '2-1', label: '2-1. 시장 현황 및 규모', placeholder: "내용을 입력하세요", rows: 4 },
+    { id: '2-2', label: '2-2. 경쟁사 분석', placeholder: "내용을 입력하세요", rows: 4 },
+    { id: '2-3', label: '2-3. 차별화 전략', placeholder: "내용을 입력하세요", rows: 4 }
+  ],
+  3: [
+    { id: '3-1', label: '3-1. 수익 구조', placeholder: "내용을 입력하세요", rows: 2 },
+    { id: '3-2', label: '3-2. 가격 정책', placeholder: "내용을 입력하세요", rows: 2 },
+    { id: '3-3', label: '3-3. 핵심 파트너십', placeholder: "내용을 입력하세요", rows: 2 }
+  ],
+  4: [
+    { id: '4-1', label: '4-1. 홍보 및 마케팅 방안', placeholder: "내용을 입력하세요", rows: 4 },
+    { id: '4-2', label: '4-2. 초기 고객 확보 전략', placeholder: "내용을 입력하세요", rows: 4 }
+  ],
+  5: [
+    { id: '5-1', label: '5-1. 예상 매출 추정', placeholder: "내용을 입력하세요", rows: 4 },
+    { id: '5-2', label: '5-2. 초기 자본 조달 계획', placeholder: "내용을 입력하세요", rows: 4 }
+  ]
+};
 
 const PlanEditor = () => {
   const navigate = useNavigate();
@@ -43,6 +77,11 @@ const PlanEditor = () => {
     '5-1': '', '5-2': ''
   });
 
+  const [checkedFields, setCheckedFields] = useState({});
+  const [guidedQuestions, setGuidedQuestions] = useState({}); // { fieldId: [q1, q2, q3] }
+  const [autoGuidedFields, setAutoGuidedFields] = useState({}); // 자동 가이드 완료 여부
+  const [fieldLoading, setFieldLoading] = useState(null);
+
   const [phase1Result, setPhase1Result] = useState(null); 
   const [showPhase1Modal, setShowPhase1Modal] = useState(false);
   const [showFinalModal, setShowFinalModal] = useState(false);
@@ -63,6 +102,9 @@ const PlanEditor = () => {
         setSimulation(savedProject.simulation);
         setFinalEval(savedProject.finalEval);
         setIsRecruiting(savedProject.isRecruiting || false);
+        setCheckedFields(savedProject.checkedFields || {});
+        setGuidedQuestions(savedProject.guidedQuestions || {});
+        setAutoGuidedFields(savedProject.autoGuidedFields || {});
       }
       setIsInitialLoaded(true);
     } else {
@@ -74,6 +116,9 @@ const PlanEditor = () => {
         '4-1': '', '4-2': '',
         '5-1': '', '5-2': ''
       });
+      setCheckedFields({});
+      setGuidedQuestions({});
+      setAutoGuidedFields({});
       setMaxAllowedStep(1);
       setActiveStep(1);
       setPhase1Result(null);
@@ -92,6 +137,9 @@ const PlanEditor = () => {
           id: Number(projectId),
           title: formData['1-1'] || '작성 중인 프로젝트',
           formData,
+          checkedFields,
+          guidedQuestions,
+          autoGuidedFields,
           maxAllowedStep,
           activeStep,
           phase1Result,
@@ -103,7 +151,47 @@ const PlanEditor = () => {
         saveProject(currentStatus);
       }
     }
-  }, [formData, maxAllowedStep, activeStep, phase1Result, simulation, finalEval, projectId, isInitialLoaded, isRecruiting]);
+  }, [formData, checkedFields, guidedQuestions, autoGuidedFields, maxAllowedStep, activeStep, phase1Result, simulation, finalEval, projectId, isInitialLoaded, isRecruiting]);
+
+  // 페이지 진입 시 첫 항목 자동 가이드
+  useEffect(() => {
+    const triggerAutoGuide = async () => {
+      const stepFields = FIELD_DATA[activeStep];
+      if (!stepFields || stepFields.length === 0) return;
+
+      const firstField = stepFields[0];
+      
+      // 이미 체크되었거나 이미 자동 가이드가 나갔다면 중단
+      if (checkedFields[firstField.id] || autoGuidedFields[firstField.id]) return;
+
+      setFieldLoading(firstField.id);
+      try {
+        const questions = await getGuidedQuestions("start", firstField.label, formData);
+        
+        const guideMsg = {
+          role: 'assistant',
+          content: `👋 [${STEPS[activeStep-1].title}] 단계를 시작합니다!\n\n` +
+                   `첫 번째 항목인 [${firstField.label}] 작성을 돕기 위해 멘토가 질문을 준비했어요. 아래 내용을 참고해서 작성해보세요.\n\n` +
+                   `──────────────\n\n` +
+                   questions.map((q, i) => `💡 질문 ${i+1}\n"${q}"`).join('\n\n') +
+                   `\n\n──────────────\n\n` +
+                   `준비되셨나요? 천천히 답변을 적어주세요! 😊`
+        };
+        
+        setChatHistory(prev => [...prev, guideMsg]);
+        setAutoGuidedFields(prev => ({ ...prev, [firstField.id]: true }));
+        setActiveTab('chat');
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setFieldLoading(null);
+      }
+    };
+
+    if (isInitialLoaded) {
+      triggerAutoGuide();
+    }
+  }, [activeStep, isInitialLoaded]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -111,6 +199,41 @@ const PlanEditor = () => {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCheck = async (fieldId, nextFieldLabel, isLastInStep) => {
+    const isNowChecked = !checkedFields[fieldId];
+    setCheckedFields(prev => ({ ...prev, [fieldId]: isNowChecked }));
+
+    // 마지막 항목이 아니고, 체크된 상태일 때만 질문 생성
+    if (isNowChecked && !isLastInStep) {
+      const currentIndex = ALL_FIELD_IDS.indexOf(fieldId);
+      const nextFieldId = ALL_FIELD_IDS[currentIndex + 1];
+
+      if (nextFieldId) {
+        setFieldLoading(fieldId);
+        try {
+          const questions = await getGuidedQuestions(fieldId, nextFieldLabel, formData);
+          
+          // 챗봇 창에 메시지 추가
+          const guideMsg = {
+            role: 'assistant',
+            content: `🚀 [${fieldId} 완료] 정말 잘하셨어요!\n\n` + 
+                     `이제 [${nextFieldLabel}] 단계로 넘어가 볼까요? 작성하시기 전에 이 질문들에 대해 잠시 생각해보시면 큰 도움이 될 거예요.\n\n` +
+                     `──────────────\n\n` +
+                     questions.map((q, i) => `💡 질문 ${i+1}\n"${q}"`).join('\n\n') +
+                     `\n\n──────────────\n\n` +
+                     `생각이 정리되시면 내용을 입력창에 적어주세요! ✍️`
+          };
+          setChatHistory(prev => [...prev, guideMsg]);
+          setActiveTab('chat'); // 챗봇 탭으로 자동 전환
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setFieldLoading(null);
+        }
+      }
+    }
   };
 
   const handleStepClick = (stepId) => {
@@ -254,50 +377,43 @@ const PlanEditor = () => {
   };
 
   const renderFields = (step) => {
-    const fieldConfigs = {
-      1: [
-        { id: '1-1', label: '1-1. 창업 아이템의 명칭', placeholder: "예: 창업메이트" },
-        { id: '1-2', label: '1-2. 아이템의 핵심 기능 및 가치', placeholder: "예: AI 기반 가이드", rows: 4 },
-        { id: '1-3', label: '1-3. 타겟 고객 및 시장 페르소나', placeholder: "예: 대학생 창업자", rows: 4 }
-      ],
-      2: [
-        { id: '2-1', label: '2-1. 시장 현황 및 규모', placeholder: "내용을 입력하세요", rows: 4 },
-        { id: '2-2', label: '2-2. 경쟁사 분석', placeholder: "내용을 입력하세요", rows: 4 },
-        { id: '2-3', label: '2-3. 차별화 전략', placeholder: "내용을 입력하세요", rows: 4 }
-      ],
-      3: [
-        { id: '3-1', label: '3-1. 수익 구조', placeholder: "내용을 입력하세요", rows: 2 },
-        { id: '3-2', label: '3-2. 가격 정책', placeholder: "내용을 입력하세요", rows: 2 },
-        { id: '3-3', label: '3-3. 핵심 파트너십', placeholder: "내용을 입력하세요", rows: 2 }
-      ],
-      4: [
-        { id: '4-1', label: '4-1. 홍보 및 마케팅 방안', placeholder: "내용을 입력하세요", rows: 4 },
-        { id: '4-2', label: '4-2. 초기 고객 확보 전략', placeholder: "내용을 입력하세요", rows: 4 }
-      ],
-      5: [
-        { id: '5-1', label: '5-1. 예상 매출 추정', placeholder: "내용을 입력하세요", rows: 4 },
-        { id: '5-2', label: '5-2. 초기 자본 조달 계획', placeholder: "내용을 입력하세요", rows: 4 }
-      ]
-    };
+    const currentStepFields = FIELD_DATA[step];
 
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-12 animate-fade-in">
         <h2 className="text-3xl font-black text-slate-800 mb-6 flex items-center gap-3">
           <span className="bg-blue-100 text-blue-600 p-2 rounded-xl">{STEPS[step-1].icon}</span>
           {STEPS[step-1].title}
         </h2>
-        {fieldConfigs[step].map(field => (
-          <div key={field.id} className="space-y-2">
-            <label className="block text-sm font-bold text-slate-600">{field.label}</label>
-            <textarea 
-              className="w-full p-4 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-700 shadow-sm"
-              rows={field.rows || 2}
-              placeholder={field.placeholder}
-              value={formData[field.id]}
-              onChange={(e) => handleInputChange(field.id, e.target.value)}
-            />
-          </div>
-        ))}
+        {currentStepFields.map((field, idx) => {
+          const isLastInStep = idx === currentStepFields.length - 1;
+          const nextField = currentStepFields[idx + 1];
+          return (
+            <div key={field.id} className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-bold text-slate-600">{field.label}</label>
+                <div className="flex items-center gap-2">
+                   {fieldLoading === field.id && <Loader2 size={16} className="animate-spin text-blue-600"/>}
+                   <button 
+                    onClick={() => handleCheck(field.id, nextField?.label || "", isLastInStep)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black transition-all ${checkedFields[field.id] ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                   >
+                     {checkedFields[field.id] ? <CheckCircle size={14}/> : <div className="w-3.5 h-3.5 border-2 border-slate-300 rounded-sm"/>}
+                     작성 완료
+                   </button>
+                </div>
+              </div>
+
+              <textarea 
+                className={`w-full p-6 bg-white border-2 rounded-[24px] outline-none transition-all text-slate-700 shadow-sm ${checkedFields[field.id] ? 'border-green-100 bg-green-50/10' : 'border-slate-100 focus:border-blue-500'}`}
+                rows={field.rows || 2}
+                placeholder={field.placeholder}
+                value={formData[field.id]}
+                onChange={(e) => handleInputChange(field.id, e.target.value)}
+              />
+            </div>
+          );
+        })}
         <div className="flex justify-end pt-8 border-t border-gray-100 mt-8">
           {step === 2 ? (
             <button onClick={handlePhase1Check} disabled={loading} className="bg-slate-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-slate-800 flex items-center gap-2 shadow-lg">
@@ -431,7 +547,7 @@ const PlanEditor = () => {
                                           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-slate-800' : 'bg-blue-600'} text-white shadow-md font-bold text-[10px]`}>
                                               {msg.role === 'user' ? 'U' : 'AI'}
                                           </div>
-                                          <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-none' : 'bg-white text-slate-700 rounded-tl-none border border-gray-100'}`}>
+                                          <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-none' : 'bg-white text-slate-700 rounded-tl-none border border-gray-100'}`}>
                                               {msg.content}
                                           </div>
                                       </div>

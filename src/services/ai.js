@@ -233,3 +233,34 @@ export const suggestRoles = async (fullPlan) => {
     return JSON.parse(completion.choices[0].message.content).roles;
   } catch (error) { throw error; }
 };
+
+// 6. [방향성 유도 질문 생성]
+export const getGuidedQuestions = async (currentFieldId, nextFieldLabel, formData) => {
+  if (!openai) {
+    await new Promise(r => setTimeout(r, 800));
+    return [
+      `${nextFieldLabel}의 가장 핵심적인 가치는 무엇인가요?`,
+      "경쟁 서비스와 비교했을 때 어떤 점이 독보적인가요?",
+      "사용자가 이 기능을 처음 접했을 때 어떤 느낌을 받길 원하시나요?"
+    ];
+  }
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [
+        { role: "system", content: `당신은 사업계획서 작성을 돕는 '전략 멘토'입니다. 
+사용자가 현재 항목을 작성 완료했습니다. 다음 항목인 [${nextFieldLabel}]을 작성할 때 고려해야 할 '날카롭고 구체적인 질문' 3가지를 생성하세요.
+이 질문들은 사용자가 논리적으로 앞뒤가 맞는 계획을 세울 수 있도록 유도해야 합니다. 답변은 반드시 존댓말로 해야합니다.
+
+응답은 반드시 아래의 JSON 형식을 따라야 합니다:
+{
+  "questions": ["질문1", "질문2", "질문3"]
+}` },
+        { role: "user", content: `현재까지 작성된 내용: ${JSON.stringify(formData)}\n다음 작성할 항목: ${nextFieldLabel}\n위 내용을 바탕으로 JSON 형식의 질문 3개를 생성해주세요.` }
+      ],
+      response_format: { type: "json_object" }
+    });
+    return JSON.parse(completion.choices[0].message.content).questions;
+    // eslint-disable-next-line no-unused-vars
+  } catch (error) { return ["내용을 구체화해보세요.", "차별점은 무엇인가요?", "누구에게 필요한가요?"]; }
+};

@@ -48,19 +48,62 @@ const PlanEditor = () => {
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [simulation, setSimulation] = useState(null);
   const [finalEval, setFinalEval] = useState(null);
+  const [isInitialLoaded, setIsInitialLoaded] = useState(false); // 로딩 완료 플래그
 
+  // --- [Initialization] 진입 시 프로젝트 설정 ---
   useEffect(() => {
     if (projectId) {
+      // 1. 기존 프로젝트 로드
       const savedProject = getProjectById(projectId);
       if (savedProject) {
         setFormData(savedProject.formData);
-        setMaxAllowedStep(5);
+        setMaxAllowedStep(savedProject.maxAllowedStep || 1);
+        setActiveStep(savedProject.activeStep || 1);
         setPhase1Result(savedProject.phase1Result);
         setSimulation(savedProject.simulation);
         setFinalEval(savedProject.finalEval);
       }
+      setIsInitialLoaded(true); // 로드 완료
+    } else {
+      // 2. 새 프로젝트 시작: 새로운 ID 생성 및 URL 업데이트
+      const newId = Date.now();
+      setFormData({
+        '1-1': '', '1-2': '', '1-3': '',
+        '2-1': '', '2-2': '', '2-3': '',
+        '3-1': '', '3-2': '', '3-3': '',
+        '4-1': '', '4-2': '',
+        '5-1': '', '5-2': ''
+      });
+      setMaxAllowedStep(1);
+      setActiveStep(1);
+      setPhase1Result(null);
+      setSimulation(null);
+      setFinalEval(null);
+      
+      setIsInitialLoaded(true); // 로드 완료 (빈 상태)
+      navigate(`/plan?id=${newId}`, { replace: true });
     }
   }, [projectId]);
+
+  // --- [Auto Save] 내용 변경 시 즉시 목록에 저장 ---
+  useEffect(() => {
+    // 로딩이 완료된 후에만, 그리고 projectId가 있을 때만 저장 실행
+    if (isInitialLoaded && projectId) {
+      const currentStatus = {
+        id: Number(projectId),
+        title: formData['1-1'] || '작성 중인 프로젝트',
+        formData,
+        maxAllowedStep,
+        activeStep,
+        phase1Result,
+        simulation,
+        finalEval,
+        progress: Math.round((maxAllowedStep / 5) * 100)
+      };
+
+      saveProject(currentStatus);
+    }
+  }, [formData, maxAllowedStep, activeStep, phase1Result, simulation, finalEval, projectId, isInitialLoaded]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });

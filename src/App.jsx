@@ -7,6 +7,8 @@ import MyPage from './pages/MyPage';
 
 import ProjectLounge from './pages/ProjectLounge';
 import RecruitmentForm from './pages/RecruitmentForm';
+import Insights from './pages/Insights';
+import GovSupport from './pages/GovSupport';
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
         <Route path="/recruitment/new" element={<RecruitmentForm />} />
         <Route path="/mypage" element={<MyPage />} />
         <Route path="/lounge" element={<ProjectLounge />} />
+        <Route path="/insights" element={<Insights />} />
+        <Route path="/support" element={<GovSupport />} />
       </Routes>
     </BrowserRouter>
   );

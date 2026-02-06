@@ -16,7 +16,10 @@ const MyPage = () => {
                 <h1 className="text-3xl font-black text-slate-900 mb-2">마이 페이지</h1>
                 <p className="text-gray-400 font-medium">창업의 여정을 한눈에 확인하고 다음 단계를 준비하세요.</p>
             </div>
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all">
+            <button 
+                onClick={() => navigate('/support')}
+                className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
+            >
                 <Search size={18}/> 지원사업 모아보기
             </button>
         </div>

@@ -432,6 +432,18 @@ const PlanEditor = () => {
                                       </div>
                                   </div>
                               ))}
+                              {loading && (
+                                  <div className="flex justify-start">
+                                      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-2">
+                                          <div className="flex gap-1">
+                                              <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce"></div>
+                                              <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                              <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                                          </div>
+                                          <span className="text-[10px] text-gray-400 font-bold tracking-tight">AI 답변 대기 중...</span>
+                                      </div>
+                                  </div>
+                              )}
                               <div ref={chatEndRef} />
                           </div>
                           <div className="p-4 bg-white border-t flex gap-2">
@@ -497,7 +509,7 @@ const PlanEditor = () => {
                                   <div className="bg-gray-100/50 p-6 rounded-3xl border border-gray-200/50">
                                       <h4 className="text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest">시뮬레이션 산출 근거 (가정)</h4>
                                       <ul className="space-y-2">
-                                          {simulation.simulation?.assumptions?.map((item, i) => (
+                                          {Array.isArray(simulation.simulation?.assumptions) && simulation.simulation.assumptions.map((item, i) => (
                                               <li key={i} className="text-[11px] text-slate-500 font-medium flex gap-2">
                                                   <div className="w-1 h-1 bg-gray-300 rounded-full mt-1.5 flex-shrink-0"></div>
                                                   {item}

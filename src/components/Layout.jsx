@@ -14,7 +14,8 @@ const Header = () => {
           <nav className="hidden md:flex gap-8 text-sm font-bold text-gray-500">
             <Link to="/recruitment" className="hover:text-blue-600">파트너 찾기</Link>
             <Link to="/lounge" className="hover:text-blue-600">내 프로젝트</Link>
-            <Link to="#" className="hover:text-blue-600">인사이트</Link>
+            <Link to="/insights" className="hover:text-blue-600">인사이트</Link>
+            <Link to="/support" className="hover:text-blue-600">지원사업</Link>
           </nav>
         </div>
         <div className="flex items-center gap-4">

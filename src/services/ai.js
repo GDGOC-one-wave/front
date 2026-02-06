@@ -59,16 +59,27 @@ export const simulateBM = async (allData) => {
   if (!openai) {
     await new Promise(r => setTimeout(r, MOCK_DELAY));
     return {
-      score: 88,
-      status: "성장 가능성 높음",
-      analysis: "타겟 시장의 니즈와 수익 모델(구독)의 적합성이 높습니다.",
-      metrics: {
-        marketSize: "연간 3,000억 원 규모",
-        cac: "15,000원",
-        ltv: "120,000원",
-        projection: "3.5억 원"
+      score: 85,
+      status: "검증 설계 가능",
+      bm: {
+        customerSegments: { coreUser: "수도권 20대 대학생", earlyAdopterGroup: "창업 동아리 활동 중인 학생" },
+        problem: { situation: "창업 준비 중 막막함", alternatives: ["유튜브 검색", "유료 컨설팅"], mainPainPoint: "체계적인 가이드 부재" },
+        valueProposition: { beforeAfter: "혼자 고민 -> AI와 함께 완성", uvp: "실시간 AI 피드백 및 시뮬레이션" },
+        solution: { coreFeatures: ["AI 챗봇 멘토", "BM 시뮬레이터"], mvpFeature: "사업계획서 자동 진단" },
+        channels: { inflowChannels: ["SNS 광고", "대학 커뮤니티"], initialAcquisitionStrategy: "무료 체험 이벤트" },
+        revenueStreams: { payer: "예비 창업자", payFor: "프리미엄 리포트", priceModelType: "월 구독 (SaaS)" },
+        keyResources: { required: ["AI 모델링 기술", "창업 데이터 DB"], internal: ["개발팀"], external: ["OpenAI API"] },
+        keyActivities: { activities: ["프롬프트 엔지니어링", "UX 개선"] },
+        costStructure: { majorCosts: ["API 사용료", "서버 운영비", "마케팅비"] }
       },
-      riskFactor: "대형 경쟁사의 진입"
+      simulation: {
+        marketSize: "연간 500억 원 (초기 거점 시장)",
+        cac: "약 8,000원 (SNS 타겟 광고)",
+        ltv: "약 150,000원 (6개월 유지 가정)",
+        projection: "1차년도 매출 약 2억 원 예상",
+        assumptions: ["유료 전환율 5% 가정", "월 이탈률 10% 미만 유지 시"]
+      },
+      riskFactor: "유사 AI 서비스의 빠른 등장이 위협 요인임"
     };
   }
 
@@ -78,7 +89,44 @@ export const simulateBM = async (allData) => {
       messages: [
         { 
           role: "system", 
-          content: "당신은 비즈니스 모델 시뮬레이터입니다. 입력된 전체 사업 계획을 바탕으로 가상의 성과 지표를 산출하세요. JSON 응답: { score: number, status: string, analysis: string, metrics: { marketSize: string, cac: string, ltv: string, projection: string }, riskFactor: string }" 
+          content: `당신은 비즈니스 모델 분석가이자 간단 시뮬레이터입니다.
+입력된 사업 계획(allData)을 바탕으로 BM 캔버스 9요소를 “요약 분석”하고,
+가정 기반의 핵심 지표(시장규모, CAC, LTV, 매출추정)를 산출하세요.
+
+[중요]
+질문, 코칭, nextActions, 완료기준 체크, 긴 설명은 절대 포함하지 마세요.
+사용자가 제공하지 않은 정보는 임의로 단정하지 말고, 추정/가정으로 표시하세요.
+출력은 반드시 JSON 단일 객체로만 응답하세요(마크다운/텍스트 금지).
+아래 스키마의 키 이름을 정확히 지키세요.
+
+[출력 스키마]
+{
+  "score": number (0~100, BM 구조 완성도),
+  "status": string ("초기 아이디어 단계" | "가설 정리 필요" | "검증 설계 가능" | "MVP 실험 가능"),
+  "bm": {
+    "customerSegments": { "coreUser": string, "earlyAdopterGroup": string },
+    "problem": { "situation": string, "alternatives": string[], "mainPainPoint": string },
+    "valueProposition": { "beforeAfter": string, "uvp": string },
+    "solution": { "coreFeatures": string[], "mvpFeature": string },
+    "channels": { "inflowChannels": string[], "initialAcquisitionStrategy": string },
+    "revenueStreams": { "payer": string, "payFor": string, "priceModelType": string },
+    "keyResources": { "required": string[], "internal": string[], "external": string[] },
+    "keyActivities": { "activities": string[] },
+    "costStructure": { "majorCosts": string[] }
+  },
+  "simulation": {
+    "marketSize": string,
+    "cac": string,
+    "ltv": string,
+    "projection": string,
+    "assumptions": string[]
+  },
+  "riskFactor": string
+}
+
+[시뮬레이션 규칙]
+숫자는 ‘가정 기반 예시’로만 제시하고, assumptions에 근거 가정을 3~6개 적으세요.
+allData에 수익모델/가격/전환율 정보가 없다면 보수적으로 범위를 추정하고 “가정”이라고 명시하세요.` 
         },
         { role: "user", content: JSON.stringify(allData) }
       ],

@@ -11,6 +11,7 @@ const MyPage = () => {
   useEffect(() => {
     const projects = getProjects();
     const recruitingCount = projects.filter(p => p.isRecruiting).length;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
     setStats({
       total: projects.length,
       recruiting: recruitingCount

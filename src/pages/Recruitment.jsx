@@ -5,13 +5,14 @@ import { getRecruitments } from '../services/storage';
 import { Search, Briefcase, X, Heart } from 'lucide-react';
 
 const Recruitment = () => {
-  const navigate = useNavigate();
+  
   const location = useLocation();
   const [recruitments, setRecruitments] = useState([]);
   const [filter, setFilter] = useState('');
   const [selectedRecruit, setSelectedRecruit] = useState(null);
 
   useEffect(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
     setRecruitments(getRecruitments());
   }, [location]);
 

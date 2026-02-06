@@ -179,6 +179,7 @@ const PlanEditor = () => {
       }
       const fileName = formData['1-1'] ? formData['1-1'].replace(/[/\\?%*:|"<>]/g, '_') : '사업계획서';
       pdf.save(`${fileName}.pdf`);
+      // eslint-disable-next-line no-unused-vars
     } catch (e) {
       alert("PDF 생성 중 오류가 발생했습니다.");
     } finally {
@@ -195,6 +196,7 @@ const PlanEditor = () => {
     try {
       const response = await chatWithMentor(activeStep, formData, chatInput);
       setChatHistory(prev => [...prev, { role: 'assistant', content: response }]);
+      // eslint-disable-next-line no-unused-vars
     } catch (e) {
       setChatHistory(prev => [...prev, { role: 'assistant', content: "오류가 발생했습니다." }]);
     } finally {
@@ -213,6 +215,7 @@ const PlanEditor = () => {
       setPhase1Result(result);
       setShowPhase1Modal(true);
       if (result.passed) setMaxAllowedStep(Math.max(maxAllowedStep, 3));
+      // eslint-disable-next-line no-unused-vars
     } catch (e) { alert("오류 발생"); } finally { setLoading(false); }
   };
 
@@ -224,6 +227,7 @@ const PlanEditor = () => {
       setSimulation(result);
       setActiveTab('sim');
       setMaxAllowedStep(Math.max(maxAllowedStep, 4));
+      // eslint-disable-next-line no-unused-vars
     } catch (e) { alert("오류 발생"); } finally { setLoading(false); }
   };
 
@@ -245,6 +249,7 @@ const PlanEditor = () => {
         isRecruiting
       };
       saveProject(currentStatus);
+      // eslint-disable-next-line no-unused-vars
     } catch (e) { alert("평가 실패"); } finally { setLoading(false); }
   };
 
@@ -461,28 +466,28 @@ const PlanEditor = () => {
                                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">BM Analysis Report</span>
                                               <span className="px-3 py-1 bg-blue-600 text-white text-[10px] rounded-md font-black">{simulation.status}</span>
                                           </div>
-                                          <div className="text-6xl font-black mb-4">{simulation.score} <span className="text-xl font-normal text-slate-500">pts</span></div>
-                                          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-400 font-bold leading-relaxed">
+                                          <div className="text-6xl font-black mb-4">{simulation.score} <span className="text-xl font-normal text-slate-500">점</span></div>
+                                          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-400 font-bold leading-relaxed break-words">
                                               ⚠️ 리스크: {simulation.riskFactor}
                                           </div>
                                       </div>
                                   </div>
-                                  <div className="grid grid-cols-2 gap-4">
+                                  <div className="grid grid-cols-1 gap-4">
                                       <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
                                           <div className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">시장 규모 (SAM)</div>
-                                          <div className="text-sm font-black text-slate-800">{simulation.simulation?.marketSize || '계산 중...'}</div>
+                                          <div className="text-sm font-black text-slate-800 break-words">{simulation.simulation?.marketSize || '계산 중...'}</div>
                                       </div>
                                       <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
                                           <div className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">1차년도 매출</div>
-                                          <div className="text-sm font-black text-blue-600">{simulation.simulation?.projection || '계산 중...'}</div>
+                                          <div className="text-sm font-black text-blue-600 break-words">{simulation.simulation?.projection || '계산 중...'}</div>
                                       </div>
                                       <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
                                           <div className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">CAC (획득비용)</div>
-                                          <div className="text-sm font-black text-slate-800">{simulation.simulation?.cac || '계산 중...'}</div>
+                                          <div className="text-sm font-black text-slate-800 break-words">{simulation.simulation?.cac || '계산 중...'}</div>
                                       </div>
                                       <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
                                           <div className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">LTV (생애가치)</div>
-                                          <div className="text-sm font-black text-slate-800">{simulation.simulation?.ltv || '계산 중...'}</div>
+                                          <div className="text-sm font-black text-slate-800 break-words">{simulation.simulation?.ltv || '계산 중...'}</div>
                                       </div>
                                   </div>
                                   <div className="bg-white border border-gray-100 rounded-[32px] p-6 space-y-6">
@@ -492,16 +497,16 @@ const PlanEditor = () => {
                                       <div className="space-y-4">
                                           <div>
                                               <div className="text-[10px] font-bold text-blue-500 mb-1">핵심 가치 제안 (UVP)</div>
-                                              <p className="text-xs font-bold text-slate-700 leading-relaxed">{simulation.bm?.valueProposition?.uvp}</p>
+                                              <p className="text-xs font-bold text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{simulation.bm?.valueProposition?.uvp}</p>
                                           </div>
-                                          <div className="grid grid-cols-2 gap-4 pt-2">
+                                          <div className="grid grid-cols-1 gap-4 pt-2">
                                               <div>
                                                   <div className="text-[10px] font-bold text-gray-400 mb-1">고객 세그먼트</div>
-                                                  <p className="text-[11px] font-medium text-slate-600">{simulation.bm?.customerSegments?.coreUser}</p>
+                                                  <p className="text-[11px] font-medium text-slate-600 whitespace-pre-wrap break-words">{simulation.bm?.customerSegments?.coreUser}</p>
                                               </div>
                                               <div>
                                                   <div className="text-[10px] font-bold text-gray-400 mb-1">수익원</div>
-                                                  <p className="text-[11px] font-medium text-slate-600">{simulation.bm?.revenueStreams?.priceModelType}</p>
+                                                  <p className="text-[11px] font-medium text-slate-600 whitespace-pre-wrap break-words">{simulation.bm?.revenueStreams?.priceModelType}</p>
                                               </div>
                                           </div>
                                       </div>

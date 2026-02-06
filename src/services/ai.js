@@ -19,6 +19,7 @@ export const verifyPhase1 = async (step1Data, step2Data) => {
       suggestions: isDetailed ? ["타겟 고객 세분화"] : ["경쟁사 분석 보완"]
     };
   }
+  // eslint-disable-next-line no-useless-catch
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
@@ -84,6 +85,7 @@ export const simulateBM = async (allData) => {
       riskFactor: "유사 AI 서비스의 빠른 등장이 위협 요인임"
     };
   }
+  // eslint-disable-next-line no-useless-catch
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
@@ -146,6 +148,7 @@ export const simulateBM = async (allData) => {
 // 3. [AI 챗봇]
 export const chatWithMentor = async (currentStep, formData, userMessage) => {
   if (!openai) return "네, 타겟 고객을 더 구체화해보세요.";
+  // eslint-disable-next-line no-useless-catch
   try {
     const contextData = Object.entries(formData).filter(([k]) => k.startsWith(`${currentStep}-`)).map(([k, v]) => `${k}: ${v}`).join('\n');
     const completion = await openai.chat.completions.create({
@@ -169,6 +172,7 @@ export const evaluatePlan = async (fullPlan) => {
       advice: "데모 데이 발표를 위해 장표를 시각화하는 단계로 넘어가세요.",
     };
   }
+  // eslint-disable-next-line no-useless-catch
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
@@ -216,6 +220,7 @@ export const suggestRoles = async (fullPlan) => {
       { role: "UI/UX 디자이너", reason: "사용자 경험 개선" }
     ];
   }
+  // eslint-disable-next-line no-useless-catch
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",

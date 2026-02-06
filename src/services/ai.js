@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 
+// eslint-disable-next-line no-undef
 const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 const isValidKey = apiKey && apiKey.startsWith('sk-');
 const openai = isValidKey ? new OpenAI({ apiKey, dangerouslyAllowBrowser: true }) : null;
@@ -8,7 +9,7 @@ const MOCK_DELAY = 1500;
 // 1. [Phase 1 검증]
 export const verifyPhase1 = async (step1Data, step2Data) => {
   if (!openai) {
-    await new Promise(r => setTimeout(r, MOCK_DELAY));
+    await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY));
     const isDetailed = Object.values(step1Data).join('').length > 30 && Object.values(step2Data).join('').length > 30;
     return {
       score: isDetailed ? 82 : 55,
@@ -29,13 +30,16 @@ export const verifyPhase1 = async (step1Data, step2Data) => {
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content);
-  } catch (error) { throw error; }
+  } catch (error) {
+    console.error("verifyPhase1 Error:", error);
+    return { score: 0, passed: false, feedback: "분석 중 오류가 발생했습니다.", suggestions: [] };
+  }
 };
 
 // 2. [BM 시뮬레이션]
 export const simulateBM = async (allData) => {
   if (!openai) {
-    await new Promise(r => setTimeout(r, MOCK_DELAY));
+    await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY));
     return {
       score: 85,
       status: "검증 설계 가능",
@@ -70,14 +74,20 @@ export const simulateBM = async (allData) => {
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content);
-  } catch (error) { throw error; }
+  } catch (error) {
+    console.error("simulateBM Error:", error);
+    return null;
+  }
 };
 
 // 3. [AI 챗봇]
 export const chatWithMentor = async (currentStep, formData, userMessage) => {
   if (!openai) return "네, 타겟 고객을 더 구체화해보세요.";
   try {
-    const contextData = Object.entries(formData).filter(([k]) => k.startsWith(`${currentStep}-`)).map(([k, v]) => `${k}: ${v}`).join('\n');
+    const contextData = Object.entries(formData)
+      .filter(([k]) => k.startsWith(`${currentStep}-`))
+      .map(([k, v]) => `${k}: ${v}`)
+      .join('\n');
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
@@ -86,13 +96,16 @@ export const chatWithMentor = async (currentStep, formData, userMessage) => {
       ],
     });
     return completion.choices[0].message.content;
-  } catch (error) { throw error; }
+  } catch (error) {
+    console.error("chatWithMentor Error:", error);
+    return "상담 서비스에 일시적인 오류가 발생했습니다.";
+  }
 };
 
 // 4. [최종 평가]
 export const evaluatePlan = async (fullPlan) => {
   if (!openai) {
-    await new Promise(r => setTimeout(r, MOCK_DELAY));
+    await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY));
     return {
       score: 92,
       feedback: "매우 탄탄한 기획입니다. 초기 시장 진입 전략만 조금 더 다듬으면 투자 유치도 가능해 보입니다.",
@@ -109,13 +122,16 @@ export const evaluatePlan = async (fullPlan) => {
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content);
-  } catch (error) { throw error; }
+  } catch (error) {
+    console.error("evaluatePlan Error:", error);
+    return { score: 0, feedback: "평가 중 오류가 발생했습니다.", advice: "" };
+  }
 };
 
 // 5. [팀원 추천]
 export const suggestRoles = async (fullPlan) => {
   if (!openai) {
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     return [
       { role: "프론트엔드 개발자", reason: "웹 서비스 구현 필수" },
       { role: "마케터", reason: "초기 유입 증대" },
@@ -132,5 +148,8 @@ export const suggestRoles = async (fullPlan) => {
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content).roles;
-  } catch (error) { throw error; }
+  } catch (error) {
+    console.error("suggestRoles Error:", error);
+    return [];
+  }
 };

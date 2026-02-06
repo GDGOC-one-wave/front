@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Header, Footer } from '../components/Layout';
 import { getRecruitments } from '../services/storage';
-import { Search, Briefcase, X, Heart } from 'lucide-react';
+import { Search, Briefcase, X, Heart, MessageCircle } from 'lucide-react';
 
 const Recruitment = () => {
   const navigate = useNavigate();
@@ -20,16 +20,28 @@ const Recruitment = () => {
     item.roles.some(r => r.toLowerCase().includes(filter.toLowerCase()))
   );
 
+  const handleApply = (recruitId) => {
+    const applied = JSON.parse(localStorage.getItem('appliedProjects') || '[]');
+    if (applied.includes(recruitId)) {
+        alert("이미 지원했습니다.");
+    } else {
+        applied.push(recruitId);
+        localStorage.setItem('appliedProjects', JSON.stringify(applied));
+        alert("지원되었습니다.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50/50">
       <Header />
       
       <main className="max-w-7xl mx-auto py-16 px-6">
         <div className="text-center mb-16">
-            <h1 className="text-4xl font-black text-slate-900 mb-4">함께 성장할 파트너를 찾으세요</h1>
+            <h1 className="text-4xl font-black text-slate-900 mb-4 tracking-tight">함께 성장할 파트너를 찾으세요</h1>
             <p className="text-gray-400 font-medium">검증된 아이디어와 열정적인 팀원들이 기다리고 있습니다.</p>
         </div>
 
+        {/* Search */}
         <div className="max-w-2xl mx-auto mb-16 relative">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400" />
             <input 
@@ -41,6 +53,7 @@ const Recruitment = () => {
             />
         </div>
 
+        {/* List */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredList.map(item => (
                 <div 
@@ -61,7 +74,7 @@ const Recruitment = () => {
                     <h3 className="text-xl font-black text-slate-800 mb-3 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
                         {item.title}
                     </h3>
-                    <p className="text-sm text-slate-500 font-medium line-clamp-2 mb-8 leading-relaxed">
+                    <p className="text-sm text-slate-500 font-medium line-clamp-2 mb-8 leading-relaxed font-bold">
                         {item.summary}
                     </p>
                     
@@ -84,42 +97,42 @@ const Recruitment = () => {
             ))}
         </div>
 
-        {/* Modal (Same as Home) */}
+        {/* --- Detail Modal (Unified Design) --- */}
         {selectedRecruit && (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4" onClick={() => setSelectedRecruit(null)}>
                 <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl p-10 animate-fade-in relative flex flex-col" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => setSelectedRecruit(null)} className="absolute right-8 top-8 p-2 bg-gray-100 rounded-full text-gray-400 hover:bg-gray-200 transition-all"><X size={20}/></button>
+                    <button onClick={() => setSelectedRecruit(null)} className="absolute right-8 top-8 p-2 bg-gray-100 rounded-full text-gray-400 hover:bg-gray-200 transition-all">
+                        <X size={20}/>
+                    </button>
+                    
                     <h2 className="text-3xl font-black text-slate-900 mb-6">{selectedRecruit.title}</h2>
                     <div className="flex items-center gap-3 mb-8">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500"></div>
                         <span className="font-bold text-slate-700">{selectedRecruit.author}</span>
                     </div>
-                    <div className="space-y-6">
+
+                    <div className="space-y-8 flex-1 overflow-y-auto pr-2">
                         <div>
-                            <h4 className="text-xs font-black text-gray-400 uppercase mb-2">프로젝트 소개</h4>
-                            <p className="text-slate-600 leading-relaxed font-medium">{selectedRecruit.summary}</p>
+                            <h4 className="text-xs font-black text-gray-400 uppercase mb-3 tracking-widest">서비스 소개</h4>
+                            <p className="text-lg text-slate-700 leading-relaxed font-bold whitespace-pre-wrap">
+                                {selectedRecruit.summary}
+                            </p>
                         </div>
                         <div>
-                            <h4 className="text-xs font-black text-gray-400 uppercase mb-2">모집 포지션</h4>
+                            <h4 className="text-xs font-black text-gray-400 uppercase mb-3 tracking-widest">모집 포지션</h4>
                             <div className="flex flex-wrap gap-2">
-                                {selectedRecruit.roles.map(r => (
-                                    <span key={r} className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg border border-blue-100">{r}</span>
+                                {selectedRecruit.roles.map((r, idx) => (
+                                    <span key={idx} className="px-4 py-2 bg-blue-50 text-blue-600 text-xs font-black rounded-xl border border-blue-100">
+                                        {r}
+                                    </span>
                                 ))}
                             </div>
                         </div>
                     </div>
+
                     <button 
-                        onClick={() => {
-                            const applied = JSON.parse(localStorage.getItem('appliedProjects') || '[]');
-                            if (applied.includes(selectedRecruit.id)) {
-                                alert("이미 지원했습니다.");
-                            } else {
-                                applied.push(selectedRecruit.id);
-                                localStorage.setItem('appliedProjects', JSON.stringify(applied));
-                                alert("지원되었습니다.");
-                            }
-                        }}
-                        className="w-full mt-10 bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl flex items-center justify-center gap-2"
+                        onClick={() => handleApply(selectedRecruit.id)}
+                        className="w-full mt-10 bg-slate-900 text-white py-5 rounded-[24px] font-black text-lg hover:bg-slate-800 transition-all shadow-xl flex items-center justify-center gap-2"
                     >
                         <MessageCircle size={20}/> 지원하기 / 커피챗 요청
                     </button>

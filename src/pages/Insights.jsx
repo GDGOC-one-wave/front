@@ -160,49 +160,71 @@ const Insights = () => {
             ))}
         </div>
 
-        {/* --- Article Detail Modal --- */}
+        {/* --- Article Detail Modal (Redesigned) --- */}
         {selectedArticle && (
-            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex justify-center items-center p-4">
-                <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-[48px] shadow-2xl overflow-hidden animate-fade-in flex flex-col relative">
+            <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-lg z-[100] flex justify-center items-center p-4" onClick={closeArticle}>
+                <div 
+                    className="bg-white w-full max-w-2xl max-h-[85vh] rounded-[48px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] overflow-hidden animate-fade-in flex flex-col relative" 
+                    onClick={e => e.stopPropagation()}
+                >
                     {/* Modal Header */}
-                    <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-white sticky top-0 z-10">
-                        <div className="flex items-center gap-2 text-blue-600 font-black text-xs uppercase tracking-widest">
-                            <BookOpen size={16}/> {selectedArticle.category}
-                        </div>
+                    <div className="px-10 py-6 border-b border-gray-50 flex justify-between items-center bg-white/80 backdrop-blur-md sticky top-0 z-10">
+                        <span className="px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-[0.2em]">
+                            {selectedArticle.category}
+                        </span>
                         <button 
                             onClick={closeArticle}
-                            className="p-3 bg-gray-100 rounded-2xl text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
+                            className="p-2.5 bg-gray-50 rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
                         >
                             <X size={20}/>
                         </button>
                     </div>
 
                     {/* Modal Body */}
-                    <div className="flex-1 overflow-y-auto p-10 md:p-16">
-                        <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-8 leading-tight">
+                    <div className="flex-1 overflow-y-auto p-10 md:p-14 text-left">
+                        <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-8 leading-[1.3] tracking-tight">
                             {selectedArticle.title}
                         </h2>
                         
-                        <div className="flex items-center gap-6 text-sm font-bold text-gray-400 mb-12 border-b border-gray-50 pb-8">
-                            <div className="flex items-center gap-2"><Calendar size={16}/> {selectedArticle.date}</div>
-                            <div className="flex items-center gap-2"><Clock size={16}/> {selectedArticle.readTime}</div>
-                            <div className="flex items-center gap-2 underline decoration-2 underline-offset-4 decoration-blue-100 text-slate-600">By {selectedArticle.author}</div>
+                        <div className="flex items-center gap-4 text-sm font-bold text-gray-400 mb-12 pb-8 border-b border-gray-100">
+                            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-100">
+                                {selectedArticle.author[0]}
+                            </div>
+                            <div>
+                                <div className="text-slate-800 font-black">{selectedArticle.author}</div>
+                                <div className="text-[11px] text-gray-300 uppercase tracking-wider flex gap-2">
+                                    <span>{selectedArticle.date}</span>
+                                    <span>•</span>
+                                    <span className="text-blue-400">{selectedArticle.readTime}</span>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="prose prose-slate max-w-none">
-                            <p className="text-lg text-slate-700 leading-loose whitespace-pre-wrap font-medium">
-                                {selectedArticle.content || "상세 내용을 준비 중입니다..."}
+                        {/* Content Area */}
+                        <div className="space-y-8">
+                            <div className="bg-slate-50 p-8 rounded-3xl border-l-4 border-blue-600">
+                                <p className="text-lg text-slate-800 font-bold leading-relaxed italic">
+                                    "{selectedArticle.summary}"
+                                </p>
+                            </div>
+
+                            <div className="prose prose-slate max-w-none">
+                                <p className="text-base md:text-lg text-slate-600 leading-[1.8] whitespace-pre-wrap font-medium">
+                                    {selectedArticle.content?.trim()}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Recommendation */}
+                        <div className="mt-16 p-8 bg-blue-600 rounded-[32px] text-white shadow-xl shadow-blue-100">
+                            <h4 className="text-lg font-black mb-2 flex items-center gap-2">
+                                <Lightbulb size={20}/> 관련 인사이트 더보기
+                            </h4>
+                            <p className="text-blue-100 text-sm font-medium mb-6">
+                                창업메이트 AI가 추천하는 다른 아티클도 확인해보세요.
                             </p>
-                        </div>
-
-                        {/* Article Footer */}
-                        <div className="mt-16 pt-10 border-t border-gray-100 text-center">
-                            <p className="text-gray-400 text-sm font-bold mb-6 italic">본 아티클이 도움이 되셨나요? 더 많은 창업 정보를 '창업메이트'에서 확인하세요.</p>
-                            <button 
-                                onClick={closeArticle}
-                                className="inline-flex items-center gap-2 text-blue-600 font-black text-sm hover:gap-3 transition-all"
-                            >
-                                <ArrowLeft size={18}/> 리스트로 돌아가기
+                            <button onClick={closeArticle} className="w-full bg-white text-blue-600 py-4 rounded-2xl font-black text-sm hover:bg-blue-50 transition-all">
+                                리스트로 돌아가기
                             </button>
                         </div>
                     </div>

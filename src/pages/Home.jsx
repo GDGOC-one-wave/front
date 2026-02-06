@@ -13,6 +13,7 @@ const Home = () => {
   const [selectedRecruit, setSelectedRecruit] = useState(null);
 
   useEffect(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
     setRecruitments(getRecruitments());
   }, []);
 

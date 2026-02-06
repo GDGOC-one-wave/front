@@ -10,7 +10,7 @@ const RecruitmentForm = () => {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
   
-  const [project, setProject] = useState(null);
+  const [, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [aiRoles, setAiRoles] = useState([]);
   

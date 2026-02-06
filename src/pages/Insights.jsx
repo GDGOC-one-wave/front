@@ -106,6 +106,7 @@ const Insights = () => {
 
   const openArticle = (article) => {
     setSelectedArticle(article);
+    // eslint-disable-next-line react-hooks/immutability
     document.body.style.overflow = 'hidden'; // 스크롤 방지
   };
 

@@ -57,8 +57,12 @@ const PlanEditor = () => {
       const savedProject = getProjectById(projectId);
       if (savedProject) {
         setFormData(savedProject.formData);
-        setMaxAllowedStep(savedProject.maxAllowedStep || 1);
+        
+        // 최종 평가가 이미 있다면 모든 단계 해제 (5), 아니면 저장된 단계 로드
+        const restoredMaxStep = savedProject.finalEval ? 5 : (savedProject.maxAllowedStep || 1);
+        setMaxAllowedStep(restoredMaxStep);
         setActiveStep(savedProject.activeStep || 1);
+        
         setPhase1Result(savedProject.phase1Result);
         setSimulation(savedProject.simulation);
         setFinalEval(savedProject.finalEval);
@@ -87,8 +91,10 @@ const PlanEditor = () => {
 
   // --- [Auto Save] 내용 변경 시 즉시 목록에 저장 ---
   useEffect(() => {
-    // 로딩이 완료된 후에만, 그리고 projectId가 있을 때만 저장 실행
-    if (isInitialLoaded && projectId) {
+    // 로딩 완료 & projectId 존재 & 하나라도 내용이 입력되었는지 체크
+    const hasContent = Object.values(formData).some(val => val.trim().length > 0);
+
+    if (isInitialLoaded && projectId && hasContent) {
       const currentStatus = {
         id: Number(projectId),
         title: formData['1-1'] || '작성 중인 프로젝트',

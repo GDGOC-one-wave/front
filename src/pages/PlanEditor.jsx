@@ -97,60 +97,31 @@ const PlanEditor = () => {
   };
 
   const handleExportPDF = async () => {
-    if (!printRef.current) {
-      alert("출력할 내용을 찾을 수 없습니다.");
-      return;
-    }
+    if (!printRef.current) return;
     setLoading(true);
-    console.log("PDF 내보내기 시작...");
-    
     try {
       const element = printRef.current;
-      
-      // html2canvas 옵션 최적화
-      const canvas = await html2canvas(element, {
-        scale: 1.5, // 2에서 1.5로 하향하여 메모리 부하 감소
-        useCORS: true,
-        logging: true, // 디버깅을 위해 로깅 활성화
-        backgroundColor: "#ffffff",
-        // 캡처 시점에만 임시로 위치 조정이 필요할 수 있음
-      });
-
-      console.log("Canvas 캡처 성공:", canvas.width, "x", canvas.height);
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.8); // PNG 대신 JPEG(품질 0.8) 사용하여 용량 최적화
-      
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4',
-        compress: true // PDF 압축 활성화
-      });
-
-      const imgWidth = 210; 
-      const pageHeight = 297; 
+      const canvas = await html2canvas(element, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL('image/jpeg', 0.8);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 297;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       let heightLeft = imgHeight;
       let position = 0;
 
-      // 페이지 분할 로직
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
-
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
       }
-
-      const fileName = formData['1-1'] ? formData['1-1'].replace(/[/\\?%*:|"<>]/g, '_') : '사업계획서';
-      pdf.save(`${fileName}.pdf`);
-      console.log("PDF 저장 완료");
-      
+      pdf.save(`${formData['1-1'] || '사업계획서'}.pdf`);
     } catch (e) {
-      console.error("상세 PDF 에러:", e);
-      alert(`PDF 생성 중 오류가 발생했습니다: ${e.message}`);
+      console.error(e);
+      alert("PDF 생성 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -286,39 +257,38 @@ const PlanEditor = () => {
 
   return (
     <div className="flex h-screen bg-white overflow-hidden text-slate-900 font-sans">
-      {/* Hidden PDF Template */}
       <div style={{ position: 'fixed', top: '-10000px', left: '-10000px' }}>
          <div ref={printRef} style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#ffffff', padding: '20mm', color: '#000000', fontFamily: 'sans-serif' }}>
-            {/* Cover Page */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '250mm', borderBottom: '2px solid #0f172a', marginBottom: '10mm' }}>
                 <div style={{ fontSize: '36px', fontWeight: '900', marginBottom: '6mm', color: '#0f172a' }}>{formData['1-1'] || '사업계획서'}</div>
                 <div style={{ fontSize: '20px', fontWeight: '500', color: '#64748b', marginBottom: '12mm' }}>Startup Mate Project Plan</div>
                 <div style={{ fontSize: '14px', color: '#94a3b8' }}>Created with 창업메이트 AI</div>
                 <div style={{ fontSize: '14px', color: '#94a3b8', marginTop: '2mm' }}>{new Date().toLocaleDateString()}</div>
             </div>
-
-            {/* Content Pages */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
                 {STEPS.map((s) => (
                     <div key={s.id} style={{ pageBreakInside: 'avoid' }}>
-                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '24px' }}>
-                            {s.id}. {s.title}
-                        </h2>
+                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '24px' }}>{s.id}. {s.title}</h2>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {Object.entries(formData)
-                                .filter(([k]) => k.startsWith(`${s.id}-`))
-                                .map(([k, v]) => (
+                            {Object.entries(formData).filter(([k]) => k.startsWith(`${s.id}-`)).map(([k, v]) => (
                                 <div key={k}>
                                     <h4 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase' }}>{k}</h4>
-                                    <p style={{ fontSize: '16px', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                                        {v || '(내용 없음)'}
-                                    </p>
+                                    <p style={{ fontSize: '16px', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{v || '(내용 없음)'}</p>
                                 </div>
                             ))}
                         </div>
                     </div>
                 ))}
             </div>
+            {simulation && (
+                <div style={{ marginTop: '50px', paddingTop: '30px', borderTop: '2px solid #0f172a', pageBreakInside: 'avoid' }}>
+                    <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e293b', marginBottom: '20px' }}>부록: BM 시뮬레이션 결과</h2>
+                    <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#0f172a', marginBottom: '10px' }}>{simulation.status}</div>
+                        <p style={{ fontSize: '14px', color: '#ef4444', fontWeight: 'bold' }}>⚠️ Risk: {simulation.riskFactor}</p>
+                    </div>
+                </div>
+            )}
          </div>
       </div>
 
@@ -365,8 +335,13 @@ const PlanEditor = () => {
                           <div className="flex-1 p-6 space-y-6 overflow-y-auto">
                               {chatHistory.map((msg, idx) => (
                                   <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                      <div className={`p-4 rounded-2xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-slate-800 text-white' : 'bg-white text-slate-700 border border-gray-100'}`}>
-                                          {msg.content}
+                                      <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-slate-800' : 'bg-blue-600'} text-white shadow-md`}>
+                                              {msg.role === 'user' ? <User size={16}/> : <Bot size={16}/>}
+                                          </div>
+                                          <div className={`p-4 rounded-2xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-slate-800 text-white' : 'bg-white text-slate-700 border border-gray-100'}`}>
+                                              {msg.content}
+                                          </div>
                                       </div>
                                   </div>
                               ))}
@@ -378,14 +353,46 @@ const PlanEditor = () => {
                           </div>
                       </div>
                   ) : (
-                      <div className="p-8">
-                          {simulation && <div className="bg-white p-6 rounded-3xl shadow-lg border border-purple-100">
-                              <h3 className="text-xl font-black mb-4">{simulation.status}</h3>
-                              <p className="text-sm text-gray-500 mb-6">{simulation.analysis}</p>
-                              <div className="p-4 bg-gray-50 rounded-xl text-sm">
-                                  <div>매출: {simulation.metrics.projection}</div>
+                      <div className="p-6 space-y-6">
+                          {simulation ? (
+                              <div className="animate-fade-in space-y-6 pb-20">
+                                  <div className="bg-slate-900 text-white p-8 rounded-[32px] shadow-xl relative overflow-hidden">
+                                      <div className="relative z-10">
+                                          <div className="flex justify-between items-center mb-6">
+                                              <span className="text-[10px] font-black text-slate-400 uppercase">BM Analysis Report</span>
+                                              <span className="px-3 py-1 bg-blue-600 text-white text-[10px] rounded-md font-black">{simulation.status}</span>
+                                          </div>
+                                          <div className="text-6xl font-black mb-4">{simulation.score} <span className="text-xl font-normal text-slate-500">pts</span></div>
+                                          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-400 font-bold">⚠️ 리스크: {simulation.riskFactor}</div>
+                                      </div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                          <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">시장 규모</div>
+                                          <div className="text-sm font-black text-slate-800">{simulation.simulation?.marketSize}</div>
+                                      </div>
+                                      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                          <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">매출 추정</div>
+                                          <div className="text-sm font-black text-blue-600">{simulation.simulation?.projection}</div>
+                                      </div>
+                                  </div>
+                                  <div className="bg-gray-100 p-6 rounded-3xl">
+                                      <h4 className="text-xs font-black text-gray-400 mb-3">Assumptions</h4>
+                                      <ul className="space-y-2">
+                                          {simulation.simulation?.assumptions?.map((a, i) => (
+                                              <li key={i} className="text-xs text-slate-600 flex gap-2">
+                                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-1.5"></div>{a}
+                                              </li>
+                                          ))}
+                                      </ul>
+                                  </div>
                               </div>
-                          </div>}
+                          ) : (
+                              <div className="text-center py-20 opacity-30">
+                                  <LineChart size={64} className="mx-auto mb-4"/>
+                                  <p className="text-xs font-black uppercase">시뮬레이션을 실행하세요.</p>
+                              </div>
+                          )}
                       </div>
                   )}
               </div>

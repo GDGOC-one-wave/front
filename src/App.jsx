@@ -6,6 +6,7 @@ import Recruitment from './pages/Recruitment';
 import MyPage from './pages/MyPage';
 
 import ProjectLounge from './pages/ProjectLounge';
+import RecruitmentForm from './pages/RecruitmentForm';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/plan" element={<PlanEditor />} />
         <Route path="/recruitment" element={<Recruitment />} />
+        <Route path="/recruitment/new" element={<RecruitmentForm />} />
         <Route path="/mypage" element={<MyPage />} />
         <Route path="/lounge" element={<ProjectLounge />} />
       </Routes>

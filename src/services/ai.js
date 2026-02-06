@@ -5,17 +5,7 @@ const isValidKey = apiKey && apiKey.startsWith('sk-');
 const openai = isValidKey ? new OpenAI({ apiKey, dangerouslyAllowBrowser: true }) : null;
 const MOCK_DELAY = 1500;
 
-// 유틸리티: 키가 없을 때 안내 메시지 출력
-const logStatus = () => {
-    if (!isValidKey) {
-        console.log("%c[AI 서비스] API 키가 설정되지 않았거나 올바르지 않습니다. Mock 데이터를 사용합니다.", "color: orange; font-weight: bold;");
-    } else {
-        console.log("%c[AI 서비스] OpenAI API가 연결되었습니다. 실시간 GPT 모드로 작동합니다.", "color: green; font-weight: bold;");
-    }
-};
-logStatus();
-
-// 1. [Phase 1 검증] 사업 개요(Step 1) + 시장 분석(Step 2) 통합 분석
+// 1. [Phase 1 검증]
 export const verifyPhase1 = async (step1Data, step2Data) => {
   if (!openai) {
     await new Promise(r => setTimeout(r, MOCK_DELAY));
@@ -24,37 +14,25 @@ export const verifyPhase1 = async (step1Data, step2Data) => {
       score: isDetailed ? 82 : 55,
       passed: isDetailed,
       feedback: isDetailed 
-        ? "사업의 정의와 타겟 시장이 논리적으로 잘 연결되어 있습니다. 특히 경쟁사 분석이 구체적입니다." 
-        : "핵심 기능과 타겟 시장에 대한 설명이 다소 부족합니다. 조금 더 구체적인 수치나 예시를 들어주세요.",
-      suggestions: isDetailed 
-        ? ["타겟 고객을 더 세분화하여 '초기 거점 시장'을 명시해보세요."] 
-        : ["경쟁사의 약점을 공략할 우리만의 '한 방'을 2-3 항목에 추가하세요."]
+        ? "사업의 정의와 타겟 시장이 논리적으로 잘 연결되어 있습니다." 
+        : "설명이 다소 부족합니다. 조금 더 구체적으로 작성해주세요.",
+      suggestions: isDetailed ? ["타겟 고객 세분화"] : ["경쟁사 분석 보완"]
     };
   }
-
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
-        { 
-          role: "system", 
-          content: "당신은 까다로운 벤처 투자자(VC)입니다. 사업 개요와 시장 분석 내용을 평가하세요. 70점 이상이어야 통과입니다. JSON 응답: { score: number, passed: boolean, feedback: string, suggestions: string[] }" 
-        },
-        { 
-          role: "user", 
-          content: `[1. 사업 개요] ${JSON.stringify(step1Data)} \n [2. 시장 분석] ${JSON.stringify(step2Data)}` 
-        }
+        { role: "system", content: "당신은 벤처 투자자입니다. 사업 개요와 시장 분석을 평가하세요. JSON: { score: number, passed: boolean, feedback: string, suggestions: string[] }" },
+        { role: "user", content: JSON.stringify({ ...step1Data, ...step2Data }) }
       ],
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content);
-  } catch (error) {
-    console.error("AI Error:", error);
-    throw error;
-  }
+  } catch (error) { throw error; }
 };
 
-// 2. [BM 시뮬레이션] Step 1, 2, 3 데이터를 모두 통합하여 시뮬레이션
+// 2. [BM 시뮬레이션]
 export const simulateBM = async (allData) => {
   if (!openai) {
     await new Promise(r => setTimeout(r, MOCK_DELAY));
@@ -74,118 +52,41 @@ export const simulateBM = async (allData) => {
       },
       simulation: {
         marketSize: "연간 500억 원 (초기 거점 시장)",
-        cac: "약 8,000원 (SNS 타겟 광고)",
-        ltv: "약 150,000원 (6개월 유지 가정)",
+        cac: "약 8,000원",
+        ltv: "약 150,000원",
         projection: "1차년도 매출 약 2억 원 예상",
-        assumptions: ["유료 전환율 5% 가정", "월 이탈률 10% 미만 유지 시"]
+        assumptions: ["유료 전환율 5% 가정", "월 이탈률 10% 미만"]
       },
       riskFactor: "유사 AI 서비스의 빠른 등장이 위협 요인임"
     };
   }
-
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
-        { 
-          role: "system", 
-          content: `당신은 비즈니스 모델 분석가이자 간단 시뮬레이터입니다.
-입력된 사업 계획(allData)을 바탕으로 BM 캔버스 9요소를 “요약 분석”하고,
-가정 기반의 핵심 지표(시장규모, CAC, LTV, 매출추정)를 산출하세요.
-
-[중요]
-질문, 코칭, nextActions, 완료기준 체크, 긴 설명은 절대 포함하지 마세요.
-사용자가 제공하지 않은 정보는 임의로 단정하지 말고, 추정/가정으로 표시하세요.
-출력은 반드시 JSON 단일 객체로만 응답하세요(마크다운/텍스트 금지).
-아래 스키마의 키 이름을 정확히 지키세요.
-
-[출력 스키마]
-{
-  "score": number (0~100, BM 구조 완성도),
-  "status": string ("초기 아이디어 단계" | "가설 정리 필요" | "검증 설계 가능" | "MVP 실험 가능"),
-  "bm": {
-    "customerSegments": { "coreUser": string, "earlyAdopterGroup": string },
-    "problem": { "situation": string, "alternatives": string[], "mainPainPoint": string },
-    "valueProposition": { "beforeAfter": string, "uvp": string },
-    "solution": { "coreFeatures": string[], "mvpFeature": string },
-    "channels": { "inflowChannels": string[], "initialAcquisitionStrategy": string },
-    "revenueStreams": { "payer": string, "payFor": string, "priceModelType": string },
-    "keyResources": { "required": string[], "internal": string[], "external": string[] },
-    "keyActivities": { "activities": string[] },
-    "costStructure": { "majorCosts": string[] }
-  },
-  "simulation": {
-    "marketSize": string,
-    "cac": string,
-    "ltv": string,
-    "projection": string,
-    "assumptions": string[]
-  },
-  "riskFactor": string
-}
-
-[시뮬레이션 규칙]
-숫자는 ‘가정 기반 예시’로만 제시하고, assumptions에 근거 가정을 3~6개 적으세요.
-allData에 수익모델/가격/전환율 정보가 없다면 보수적으로 범위를 추정하고 “가정”이라고 명시하세요.` 
-        },
+        { role: "system", content: "BM 분석가입니다. JSON으로 응답하세요. { score, status, bm: { ...9 blocks }, simulation: { marketSize, cac, ltv, projection, assumptions }, riskFactor }" },
         { role: "user", content: JSON.stringify(allData) }
       ],
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content);
-  } catch (error) {
-    console.error("AI Error:", error);
-    throw error;
-  }
+  } catch (error) { throw error; }
 };
 
-// 3. [AI 챗봇] 사용자의 질문에 답변 (컨텍스트 포함)
+// 3. [AI 챗봇]
 export const chatWithMentor = async (currentStep, formData, userMessage) => {
-  if (!openai) {
-    await new Promise(r => setTimeout(r, 1000));
-    return "네, 작성 시 고려할 점을 알려드릴게요.\n- **타겟 정의**: 단순히 '누구'가 아니라 '어떤 상황에 처한 누구'인지 고민해보세요.\n- **시장 규모**: 전체 시장보다는 우리가 초기 진입 가능한 거점 시장(SAM)에 집중하는 것이 좋습니다.";
-  }
-
+  if (!openai) return "네, 타겟 고객을 더 구체화해보세요.";
   try {
-    // 컨텍스트 로직 변경: 현재 단계 이전의 데이터도 포함하여 문맥 파악
-    // 예: Step 2 질문 시 Step 1 데이터도 함께 전송
-    const contextData = Object.entries(formData)
-      .filter(([key]) => {
-        const stepNum = parseInt(key.split('-')[0]);
-        return stepNum <= currentStep;
-      })
-      .map(([key, val]) => {
-         const stepNum = parseInt(key.split('-')[0]);
-         const prefix = stepNum === currentStep ? "[현재 작성 중]" : "[배경 정보]";
-         return `${prefix} ${key}: ${val}`;
-      })
-      .join('\n');
-
+    const contextData = Object.entries(formData).filter(([k]) => k.startsWith(`${currentStep}-`)).map(([k, v]) => `${k}: ${v}`).join('\n');
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
-        { 
-          role: "system", 
-          content: `당신은 사용자가 스스로 사고할 수 있도록 돕는 '소크라테스형 창업 가이드'입니다.
-          
-          [원칙]
-          1. **직접적인 수정 지시 금지**: "이렇게 고치세요"라고 하지 말고, "이런 점을 고려해보셨나요?" 또는 "이 부분은 어떤 근거가 있나요?"라고 질문이나 관점을 제시하세요.
-          2. **고려사항 중심**: 해당 항목 작성 시 놓치기 쉬운 포인트나, 비즈니스적으로 검증해야 할 요소를 설명하세요.
-          3. **가독성**: 3~4문장 이내, 불렛포인트(-) 활용.
-          4. **문맥 파악**: [배경 정보]를 참고하여 [현재 작성 중]인 내용이 논리적으로 연결되는지 생각하며 조언하세요.
-          5. 한국어로 답변하세요.
-          
-          [Context]
-          ${contextData}`
-        },
+        { role: "system", content: `당신은 소크라테스형 멘토입니다. 짧게(3문장) 조언하세요. [Context] ${contextData}` },
         { role: "user", content: userMessage }
       ],
     });
     return completion.choices[0].message.content;
-  } catch (error) {
-    console.error("AI Chat Error:", error);
-    throw error;
-  }
+  } catch (error) { throw error; }
 };
 
 // 4. [최종 평가]
@@ -198,19 +99,38 @@ export const evaluatePlan = async (fullPlan) => {
       advice: "데모 데이 발표를 위해 장표를 시각화하는 단계로 넘어가세요.",
     };
   }
-
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
-        { role: "system", content: "최종 사업계획서를 평가합니다. JSON 응답: { score: number, feedback: string, advice: string }" },
+        { role: "system", content: "최종 사업계획서를 평가합니다. JSON: { score, feedback, advice }" },
         { role: "user", content: JSON.stringify(fullPlan) }
       ],
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content);
-  } catch (error) {
-    console.error("AI Error:", error);
-    throw error;
+  } catch (error) { throw error; }
+};
+
+// 5. [팀원 추천]
+export const suggestRoles = async (fullPlan) => {
+  if (!openai) {
+    await new Promise(r => setTimeout(r, 1000));
+    return [
+      { role: "프론트엔드 개발자", reason: "웹 서비스 구현 필수" },
+      { role: "마케터", reason: "초기 유입 증대" },
+      { role: "UI/UX 디자이너", reason: "사용자 경험 개선" }
+    ];
   }
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [
+        { role: "system", content: "팀 빌딩 전문가입니다. 필요한 직군 3개 추천. JSON: { roles: [{ role, reason }] }" },
+        { role: "user", content: JSON.stringify(fullPlan) }
+      ],
+      response_format: { type: "json_object" }
+    });
+    return JSON.parse(completion.choices[0].message.content).roles;
+  } catch (error) { throw error; }
 };

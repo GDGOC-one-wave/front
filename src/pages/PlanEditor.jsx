@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { verifyPhase1, simulateBM, evaluatePlan, chatWithMentor } from '../services/ai';
-import { saveProject, getProjectById } from '../services/storage';
+import { saveProject, getProjectById, updateProjectStatus, removeRecruitmentByProjectId } from '../services/storage';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { 
@@ -48,28 +48,24 @@ const PlanEditor = () => {
   const [showFinalModal, setShowFinalModal] = useState(false);
   const [simulation, setSimulation] = useState(null);
   const [finalEval, setFinalEval] = useState(null);
-  const [isInitialLoaded, setIsInitialLoaded] = useState(false); // 로딩 완료 플래그
+  const [isInitialLoaded, setIsInitialLoaded] = useState(false);
+  const [isRecruiting, setIsRecruiting] = useState(false);
 
-  // --- [Initialization] 진입 시 프로젝트 설정 ---
   useEffect(() => {
     if (projectId) {
-      // 1. 기존 프로젝트 로드
       const savedProject = getProjectById(projectId);
       if (savedProject) {
         setFormData(savedProject.formData);
-        
-        // 최종 평가가 이미 있다면 모든 단계 해제 (5), 아니면 저장된 단계 로드
         const restoredMaxStep = savedProject.finalEval ? 5 : (savedProject.maxAllowedStep || 1);
         setMaxAllowedStep(restoredMaxStep);
         setActiveStep(savedProject.activeStep || 1);
-        
         setPhase1Result(savedProject.phase1Result);
         setSimulation(savedProject.simulation);
         setFinalEval(savedProject.finalEval);
+        setIsRecruiting(savedProject.isRecruiting || false);
       }
-      setIsInitialLoaded(true); // 로드 완료
+      setIsInitialLoaded(true);
     } else {
-      // 2. 새 프로젝트 시작: 새로운 ID 생성 및 URL 업데이트
       const newId = Date.now();
       setFormData({
         '1-1': '', '1-2': '', '1-3': '',
@@ -83,33 +79,31 @@ const PlanEditor = () => {
       setPhase1Result(null);
       setSimulation(null);
       setFinalEval(null);
-      
-      setIsInitialLoaded(true); // 로드 완료 (빈 상태)
+      setIsInitialLoaded(true);
       navigate(`/plan?id=${newId}`, { replace: true });
     }
   }, [projectId]);
 
-  // --- [Auto Save] 내용 변경 시 즉시 목록에 저장 ---
   useEffect(() => {
-    // 로딩 완료 & projectId 존재 & 하나라도 내용이 입력되었는지 체크
-    const hasContent = Object.values(formData).some(val => val.trim().length > 0);
-
-    if (isInitialLoaded && projectId && hasContent) {
-      const currentStatus = {
-        id: Number(projectId),
-        title: formData['1-1'] || '작성 중인 프로젝트',
-        formData,
-        maxAllowedStep,
-        activeStep,
-        phase1Result,
-        simulation,
-        finalEval,
-        progress: Math.round((maxAllowedStep / 5) * 100)
-      };
-
-      saveProject(currentStatus);
+    if (isInitialLoaded && projectId) {
+      const hasContent = Object.values(formData).some(val => val.trim().length > 0);
+      if (hasContent) {
+        const currentStatus = {
+          id: Number(projectId),
+          title: formData['1-1'] || '작성 중인 프로젝트',
+          formData,
+          maxAllowedStep,
+          activeStep,
+          phase1Result,
+          simulation,
+          finalEval,
+          isRecruiting,
+          progress: Math.round((maxAllowedStep / 5) * 100)
+        };
+        saveProject(currentStatus);
+      }
     }
-  }, [formData, maxAllowedStep, activeStep, phase1Result, simulation, finalEval, projectId, isInitialLoaded]);
+  }, [formData, maxAllowedStep, activeStep, phase1Result, simulation, finalEval, projectId, isInitialLoaded, isRecruiting]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -145,6 +139,22 @@ const PlanEditor = () => {
     setActiveStep(nextStep);
   };
 
+  const handleRecruitToggle = () => {
+    if (isRecruiting) {
+      if (window.confirm("모집 공고를 내리시겠습니까? 파트너 찾기 목록에서 즉시 삭제됩니다.")) {
+        // 1. 프로젝트 상태 업데이트
+        updateProjectStatus(projectId, { isRecruiting: false });
+        // 2. 실제 공고 리스트에서 삭제 (중요: 이 코드가 핵심입니다)
+        removeRecruitmentByProjectId(projectId);
+        // 3. UI 상태 업데이트
+        setIsRecruiting(false);
+        alert("공고가 정상적으로 삭제되었습니다.");
+      }
+    } else {
+      navigate(`/recruitment/new?projectId=${projectId}`);
+    }
+  };
+
   const handleExportPDF = async () => {
     if (!printRef.current) return;
     setLoading(true);
@@ -167,9 +177,9 @@ const PlanEditor = () => {
         pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
       }
-      pdf.save(`${formData['1-1'] || '사업계획서'}.pdf`);
+      const fileName = formData['1-1'] ? formData['1-1'].replace(/[/\\?%*:|"<>]/g, '_') : '사업계획서';
+      pdf.save(`${fileName}.pdf`);
     } catch (e) {
-      console.error(e);
       alert("PDF 생성 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
@@ -224,15 +234,17 @@ const PlanEditor = () => {
       const result = await evaluatePlan(formData);
       setFinalEval(result);
       setShowFinalModal(true);
-      saveProject({
-        id: projectId ? Number(projectId) : Date.now(),
+      const currentStatus = {
+        id: Number(projectId),
         title: formData['1-1'] || '제목 없는 프로젝트',
         formData,
         phase1Result,
         simulation,
         finalEval: result,
-        progress: 100
-      });
+        progress: 100,
+        isRecruiting
+      };
+      saveProject(currentStatus);
     } catch (e) { alert("평가 실패"); } finally { setLoading(false); }
   };
 
@@ -360,7 +372,33 @@ const PlanEditor = () => {
                   ))}
               </nav>
           </div>
-          <div className="p-8 border-t border-gray-100">
+          <div className="p-6 border-t border-gray-100 space-y-4">
+             {finalEval && (
+                 <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                     <div className="flex justify-between items-center mb-2">
+                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Final Score</span>
+                         <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                     </div>
+                     <div className="text-3xl font-black text-slate-800">{finalEval.score}<span className="text-sm text-gray-300 ml-1">/100</span></div>
+                     
+                     {finalEval.score >= 80 ? (
+                         <button 
+                            onClick={handleRecruitToggle}
+                            className={`w-full mt-4 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all
+                                ${isRecruiting 
+                                    ? 'bg-red-50 text-red-500 hover:bg-red-100' 
+                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'}
+                            `}
+                         >
+                            {isRecruiting ? '공고 내리기' : '팀원 모집 공고 올리기'}
+                         </button>
+                     ) : (
+                         <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                             <p className="text-[9px] text-gray-400 font-bold leading-tight">80점 이상 달성 시<br/>팀원 모집이 가능합니다.</p>
+                         </div>
+                     )}
+                 </div>
+             )}
              <button onClick={handleExportPDF} disabled={!finalEval} className={`w-full p-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 ${finalEval ? 'bg-slate-800 text-white' : 'bg-gray-100 text-gray-300'}`}>
                 <FileText size={18}/> PDF 내보내기
              </button>
@@ -385,10 +423,10 @@ const PlanEditor = () => {
                               {chatHistory.map((msg, idx) => (
                                   <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                       <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-slate-800' : 'bg-blue-600'} text-white shadow-md`}>
-                                              {msg.role === 'user' ? <User size={16}/> : <Bot size={16}/>}
+                                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-slate-800' : 'bg-blue-600'} text-white shadow-md font-bold text-[10px]`}>
+                                              {msg.role === 'user' ? 'U' : 'AI'}
                                           </div>
-                                          <div className={`p-4 rounded-2xl text-sm shadow-sm ${msg.role === 'user' ? 'bg-slate-800 text-white' : 'bg-white text-slate-700 border border-gray-100'}`}>
+                                          <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-none' : 'bg-white text-slate-700 rounded-tl-none border border-gray-100'}`}>
                                               {msg.content}
                                           </div>
                                       </div>
@@ -397,8 +435,8 @@ const PlanEditor = () => {
                               <div ref={chatEndRef} />
                           </div>
                           <div className="p-4 bg-white border-t flex gap-2">
-                              <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} className="flex-1 p-3 bg-gray-50 rounded-xl text-sm outline-none" placeholder="질문하세요..." />
-                              <button onClick={handleSendMessage} className="p-3 bg-blue-600 text-white rounded-xl"><Send size={18}/></button>
+                              <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} className="flex-1 p-3 bg-gray-50 rounded-xl text-sm outline-none font-medium" placeholder={`${STEPS[activeStep-1].title}에 대해 물어보세요...`} />
+                              <button onClick={handleSendMessage} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg"><Send size={18}/></button>
                           </div>
                       </div>
                   ) : (
@@ -408,38 +446,70 @@ const PlanEditor = () => {
                                   <div className="bg-slate-900 text-white p-8 rounded-[32px] shadow-xl relative overflow-hidden">
                                       <div className="relative z-10">
                                           <div className="flex justify-between items-center mb-6">
-                                              <span className="text-[10px] font-black text-slate-400 uppercase">BM Analysis Report</span>
+                                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">BM Analysis Report</span>
                                               <span className="px-3 py-1 bg-blue-600 text-white text-[10px] rounded-md font-black">{simulation.status}</span>
                                           </div>
                                           <div className="text-6xl font-black mb-4">{simulation.score} <span className="text-xl font-normal text-slate-500">pts</span></div>
-                                          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-400 font-bold">⚠️ 리스크: {simulation.riskFactor}</div>
+                                          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-400 font-bold leading-relaxed">
+                                              ⚠️ 리스크: {simulation.riskFactor}
+                                          </div>
                                       </div>
                                   </div>
                                   <div className="grid grid-cols-2 gap-4">
                                       <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                                          <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">시장 규모</div>
-                                          <div className="text-sm font-black text-slate-800">{simulation.simulation?.marketSize}</div>
+                                          <div className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">시장 규모 (SAM)</div>
+                                          <div className="text-sm font-black text-slate-800">{simulation.simulation?.marketSize || '계산 중...'}</div>
                                       </div>
                                       <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                                          <div className="text-[10px] font-bold text-gray-400 uppercase mb-1">매출 추정</div>
-                                          <div className="text-sm font-black text-blue-600">{simulation.simulation?.projection}</div>
+                                          <div className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">1차년도 매출</div>
+                                          <div className="text-sm font-black text-blue-600">{simulation.simulation?.projection || '계산 중...'}</div>
+                                      </div>
+                                      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                          <div className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">CAC (획득비용)</div>
+                                          <div className="text-sm font-black text-slate-800">{simulation.simulation?.cac || '계산 중...'}</div>
+                                      </div>
+                                      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                          <div className="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">LTV (생애가치)</div>
+                                          <div className="text-sm font-black text-slate-800">{simulation.simulation?.ltv || '계산 중...'}</div>
                                       </div>
                                   </div>
-                                  <div className="bg-gray-100 p-6 rounded-3xl">
-                                      <h4 className="text-xs font-black text-gray-400 mb-3">Assumptions</h4>
+                                  <div className="bg-white border border-gray-100 rounded-[32px] p-6 space-y-6">
+                                      <h4 className="text-sm font-black text-slate-800 border-b pb-4 flex items-center gap-2">
+                                          <Zap size={16} className="text-yellow-500"/> BM Canvas 요약 분석
+                                      </h4>
+                                      <div className="space-y-4">
+                                          <div>
+                                              <div className="text-[10px] font-bold text-blue-500 mb-1">핵심 가치 제안 (UVP)</div>
+                                              <p className="text-xs font-bold text-slate-700 leading-relaxed">{simulation.bm?.valueProposition?.uvp}</p>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-4 pt-2">
+                                              <div>
+                                                  <div className="text-[10px] font-bold text-gray-400 mb-1">고객 세그먼트</div>
+                                                  <p className="text-[11px] font-medium text-slate-600">{simulation.bm?.customerSegments?.coreUser}</p>
+                                              </div>
+                                              <div>
+                                                  <div className="text-[10px] font-bold text-gray-400 mb-1">수익원</div>
+                                                  <p className="text-[11px] font-medium text-slate-600">{simulation.bm?.revenueStreams?.priceModelType}</p>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div className="bg-gray-100/50 p-6 rounded-3xl border border-gray-200/50">
+                                      <h4 className="text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest">시뮬레이션 산출 근거 (가정)</h4>
                                       <ul className="space-y-2">
-                                          {simulation.simulation?.assumptions?.map((a, i) => (
-                                              <li key={i} className="text-xs text-slate-600 flex gap-2">
-                                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-1.5"></div>{a}
+                                          {simulation.simulation?.assumptions?.map((item, i) => (
+                                              <li key={i} className="text-[11px] text-slate-500 font-medium flex gap-2">
+                                                  <div className="w-1 h-1 bg-gray-300 rounded-full mt-1.5 flex-shrink-0"></div>
+                                                  {item}
                                               </li>
                                           ))}
                                       </ul>
                                   </div>
                               </div>
                           ) : (
-                              <div className="text-center py-20 opacity-30">
-                                  <LineChart size={64} className="mx-auto mb-4"/>
-                                  <p className="text-xs font-black uppercase">시뮬레이션을 실행하세요.</p>
+                              <div className="h-full flex flex-col items-center justify-center text-center opacity-30 py-20">
+                                  <LineChart size={64} className="mb-6"/>
+                                  <p className="text-sm font-black uppercase tracking-tighter">비즈니스 모델을 분석하여<br/>성공 가능성을 수치화합니다.</p>
                               </div>
                           )}
                       </div>
@@ -465,8 +535,17 @@ const PlanEditor = () => {
            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[100]">
                <div className="bg-white rounded-[48px] max-w-xl w-full p-12 shadow-2xl animate-fade-in text-center">
                    <h2 className="text-3xl font-black mb-4">평가 완료: {finalEval?.score}점</h2>
-                   <p className="p-5 bg-blue-50 rounded-2xl text-sm mb-8">{finalEval?.advice}</p>
-                   <button onClick={() => setShowFinalModal(false)} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold">수정 계속하기</button>
+                   <div className="p-5 bg-blue-50 rounded-2xl text-sm font-bold text-blue-700 mb-8">
+                       {finalEval?.score >= 80 ? `💡 멘토 조언: ${finalEval?.advice}` : "⚠️ 공고를 올리기에는 아이디어 구체성이 조금 부족합니다. 내용을 보완하여 80점 이상을 노려보세요!"}
+                   </div>
+                   
+                   {finalEval?.score >= 80 ? (
+                       <button onClick={() => navigate(`/recruitment/new?projectId=${projectId}`)} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 transition-all">팀원 모집 공고 올리기</button>
+                   ) : (
+                       <button disabled className="w-full bg-gray-100 text-gray-400 py-4 rounded-xl font-bold text-lg cursor-not-allowed">80점 미만 모집 불가</button>
+                   )}
+                   
+                   <button onClick={() => setShowFinalModal(false)} className="w-full bg-white border border-gray-200 text-gray-500 py-4 rounded-xl font-bold mt-3 hover:bg-gray-50">수정 계속하기</button>
                </div>
            </div>
        )}

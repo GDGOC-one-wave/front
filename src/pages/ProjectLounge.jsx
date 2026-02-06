@@ -53,8 +53,15 @@ const ProjectLounge = () => {
                         className="group bg-white border border-gray-100 rounded-[32px] p-8 hover:shadow-2xl hover:shadow-blue-100 transition-all cursor-pointer relative overflow-hidden"
                     >
                         <div className="flex justify-between items-start mb-6">
-                            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-                                <FileText size={24}/>
+                            <div className="flex gap-2 items-center">
+                                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                                    <FileText size={24}/>
+                                </div>
+                                {project.isRecruiting && (
+                                    <span className="px-3 py-1 bg-green-500 text-white text-[10px] font-black rounded-full animate-pulse shadow-lg shadow-green-200 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 bg-white rounded-full"></span> 공고 중
+                                    </span>
+                                )}
                             </div>
                             <button 
                                 onClick={(e) => handleDelete(project.id, e)}

@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { verifyPhase1, simulateBM, evaluatePlan, chatWithMentor } from '../services/ai';
+import { verifyPhase1, simulateBM, evaluatePlan, chatWithMentor, getGuidedQuestions } from '../services/ai';
 import { saveProject, getProjectById, updateProjectStatus, removeRecruitmentByProjectId } from '../services/storage';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { 
   Loader2, ArrowRight, MessageSquare, LineChart, Send, 
   LayoutGrid, Users, Target, Zap, DollarSign,
-  CheckCircle, Lock, AlertCircle, RefreshCw, PlayCircle, Bot, User, FileText, PlusCircle
+  CheckCircle, Lock, AlertCircle, RefreshCw, PlayCircle, Bot, User, FileText, PlusCircle, HelpCircle
 } from 'lucide-react';
 
 const STEPS = [
@@ -17,6 +17,40 @@ const STEPS = [
   { id: 4, title: '마케팅 전략', icon: <Users size={18}/> },
   { id: 5, title: '재무 계획', icon: <DollarSign size={18}/> },
 ];
+
+const ALL_FIELD_IDS = [
+  '1-1', '1-2', '1-3', 
+  '2-1', '2-2', '2-3', 
+  '3-1', '3-2', '3-3', 
+  '4-1', '4-2', 
+  '5-1', '5-2'
+];
+
+const FIELD_DATA = {
+  1: [
+    { id: '1-1', label: '1-1. 창업 아이템의 명칭', placeholder: "예: AI 기반 맞춤형 식단 추천 서비스 '헬시메이트'" },
+    { id: '1-2', label: '1-2. 아이템의 핵심 기능 및 가치', placeholder: "예: 사용자의 혈액 검사 결과와 활동량을 분석하여, 실시간으로 최적의 점심 메뉴를 추천하고 재료 배송까지 연동하는 원스톱 헬스케어 솔루션입니다.", rows: 4 },
+    { id: '1-3', label: '1-3. 타겟 고객 및 시장 페르소나', placeholder: "예: 건강 관리에 관심이 많으나 바쁜 업무로 식단 조절에 어려움을 겪는 30대 IT 직장인 (강남/판교 거주자 중심)", rows: 4 }
+  ],
+  2: [
+    { id: '2-1', label: '2-1. 시장 현황 및 규모', placeholder: "예: 국내 디지털 헬스케어 시장은 연평균 15% 성장 중이며, 특히 구독형 식단 시장은 2025년 기준 2조 원 규모에 달할 것으로 전망됩니다.", rows: 4 },
+    { id: '2-2', label: '2-2. 경쟁사 분석', placeholder: "예: 'A사'는 칼로리 기록에 치중하고 있고, 'B사'는 범용적인 식단을 제공합니다. 우리 서비스는 개인의 생체 데이터를 직접 활용한다는 점이 다릅니다.", rows: 4 },
+    { id: '2-3', label: '2-3. 차별화 전략', placeholder: "예: 단순 기록을 넘어 AI가 '결정'까지 내려주는 실시간 추천 엔진과 병원 EMR 데이터 연동을 통한 독보적인 분석 정확도를 보유하고 있습니다.", rows: 4 }
+  ],
+  3: [
+    { id: '3-1', label: '3-1. 수익 구조 (Revenue Model)', placeholder: "예: 월 19,000원의 프리미엄 구독 멤버십, 식재료 판매에 따른 15% 수수료, 제휴 피트니스 센터 광고 수익", rows: 2 },
+    { id: '3-2', label: '3-2. 가격 정책', placeholder: "예: 베이직(무료 - 분석 전용), 프로(월 1.9만 - 식단 추천), 패밀리(월 4.5만 - 3인 가족 관리)", rows: 2 },
+    { id: '3-3', label: '3-3. 핵심 파트너십', placeholder: "예: 건강검진센터(데이터 API), 로컬 신선식품 물류 업체(당일 배송), 유명 헬스 유튜버(브랜딩)", rows: 2 }
+  ],
+  4: [
+    { id: '4-1', label: '4-1. 홍보 및 마케팅 방안', placeholder: "예: 직장인 타겟 오피스 밀집 지역 인스타그램 타겟 광고, 기업 사내 복지 시스템 연동을 통한 단체 유입 유도", rows: 4 },
+    { id: '4-2', label: '4-2. 초기 고객 확보 전략', placeholder: "예: 초기 1,000명에게 3개월 무료 체험권 제공 및 '혈액 분석 리포트' 바이럴 공유 캠페인 진행", rows: 4 }
+  ],
+  5: [
+    { id: '5-1', label: '5-1. 예상 매출 추정', placeholder: "예: 1년차 유료 구독자 5,000명 달성을 통한 연 매출 10억 원 목표, 영업이익률 20% 달성", rows: 4 },
+    { id: '5-2', label: '5-2. 초기 자본 조달 계획', placeholder: "예: 중기부 예비창업패키지 5천만 원 확보, 시드 투자 유치 2억 원 추진 중 (엔젤 매칭 펀드 활용)", rows: 4 }
+  ]
+};
 
 const PlanEditor = () => {
   const navigate = useNavigate();
@@ -43,6 +77,11 @@ const PlanEditor = () => {
     '5-1': '', '5-2': ''
   });
 
+  const [checkedFields, setCheckedFields] = useState({});
+  const [guidedQuestions, setGuidedQuestions] = useState({});
+  const [autoGuidedFields, setAutoGuidedFields] = useState({});
+  const [fieldLoading, setFieldLoading] = useState(null);
+
   const [phase1Result, setPhase1Result] = useState(null); 
   const [showPhase1Modal, setShowPhase1Modal] = useState(false);
   const [showFinalModal, setShowFinalModal] = useState(false);
@@ -63,6 +102,9 @@ const PlanEditor = () => {
         setSimulation(savedProject.simulation);
         setFinalEval(savedProject.finalEval);
         setIsRecruiting(savedProject.isRecruiting || false);
+        setCheckedFields(savedProject.checkedFields || {});
+        setGuidedQuestions(savedProject.guidedQuestions || {});
+        setAutoGuidedFields(savedProject.autoGuidedFields || {});
       }
       setIsInitialLoaded(true);
     } else {
@@ -74,6 +116,9 @@ const PlanEditor = () => {
         '4-1': '', '4-2': '',
         '5-1': '', '5-2': ''
       });
+      setCheckedFields({});
+      setGuidedQuestions({});
+      setAutoGuidedFields({});
       setMaxAllowedStep(1);
       setActiveStep(1);
       setPhase1Result(null);
@@ -92,6 +137,9 @@ const PlanEditor = () => {
           id: Number(projectId),
           title: formData['1-1'] || '작성 중인 프로젝트',
           formData,
+          checkedFields,
+          guidedQuestions,
+          autoGuidedFields,
           maxAllowedStep,
           activeStep,
           phase1Result,
@@ -103,7 +151,44 @@ const PlanEditor = () => {
         saveProject(currentStatus);
       }
     }
-  }, [formData, maxAllowedStep, activeStep, phase1Result, simulation, finalEval, projectId, isInitialLoaded, isRecruiting]);
+  }, [formData, checkedFields, guidedQuestions, autoGuidedFields, maxAllowedStep, activeStep, phase1Result, simulation, finalEval, projectId, isInitialLoaded, isRecruiting]);
+
+  useEffect(() => {
+    const triggerAutoGuide = async () => {
+      const stepFields = FIELD_DATA[activeStep];
+      if (!stepFields || stepFields.length === 0) return;
+
+      const firstField = stepFields[0];
+      if (checkedFields[firstField.id] || autoGuidedFields[firstField.id]) return;
+
+      setFieldLoading(firstField.id);
+      try {
+        const questions = await getGuidedQuestions("start", firstField.label, formData);
+        
+        const guideMsg = {
+          role: 'assistant',
+          content: `👋 [${STEPS[activeStep-1].title}] 단계를 시작합니다!\n\n` +
+                   `첫 번째 항목인 [${firstField.label}] 작성을 돕기 위해 멘토가 질문을 준비했어요. 아래 내용을 참고해서 작성해보세요.\n\n` +
+                   `──────────────\n\n` +
+                   questions.map((q, i) => `💡 질문 ${i+1}\n"${q}"`).join('\n\n') +
+                   `\n\n──────────────\n\n` +
+                   `준비되셨나요? 천천히 답변을 적어주세요! 😊`
+        };
+        
+        setChatHistory(prev => [...prev, guideMsg]);
+        setAutoGuidedFields(prev => ({ ...prev, [firstField.id]: true }));
+        setActiveTab('chat');
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setFieldLoading(null);
+      }
+    };
+
+    if (isInitialLoaded) {
+      triggerAutoGuide();
+    }
+  }, [activeStep, isInitialLoaded]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -111,6 +196,39 @@ const PlanEditor = () => {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCheck = async (fieldId, nextFieldLabel, isLastInStep) => {
+    const isNowChecked = !checkedFields[fieldId];
+    setCheckedFields(prev => ({ ...prev, [fieldId]: isNowChecked }));
+
+    if (isNowChecked && !isLastInStep) {
+      const currentIndex = ALL_FIELD_IDS.indexOf(fieldId);
+      const nextFieldId = ALL_FIELD_IDS[currentIndex + 1];
+
+      if (nextFieldId) {
+        setFieldLoading(fieldId);
+        try {
+          const questions = await getGuidedQuestions(fieldId, nextFieldLabel, formData);
+          
+          const guideMsg = {
+            role: 'assistant',
+            content: `🚀 [${fieldId} 완료] 정말 잘하셨어요!\n\n` + 
+                     `이제 [${nextFieldLabel}] 단계로 넘어가 볼까요? 작성하시기 전에 이 질문들에 대해 잠시 생각해보시면 큰 도움이 될 거예요.\n\n` +
+                     `──────────────\n\n` +
+                     questions.map((q, i) => `💡 질문 ${i+1}\n"${q}"`).join('\n\n') +
+                     `\n\n──────────────\n\n` +
+                     `생각이 정리되시면 내용을 입력창에 적어주세요! ✍️`
+          };
+          setChatHistory(prev => [...prev, guideMsg]);
+          setActiveTab('chat');
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setFieldLoading(null);
+        }
+      }
+    }
   };
 
   const handleStepClick = (stepId) => {
@@ -142,11 +260,8 @@ const PlanEditor = () => {
   const handleRecruitToggle = () => {
     if (isRecruiting) {
       if (window.confirm("모집 공고를 내리시겠습니까? 파트너 찾기 목록에서 즉시 삭제됩니다.")) {
-        // 1. 프로젝트 상태 업데이트
         updateProjectStatus(projectId, { isRecruiting: false });
-        // 2. 실제 공고 리스트에서 삭제 (중요: 이 코드가 핵심입니다)
         removeRecruitmentByProjectId(projectId);
-        // 3. UI 상태 업데이트
         setIsRecruiting(false);
         alert("공고가 정상적으로 삭제되었습니다.");
       }
@@ -179,7 +294,6 @@ const PlanEditor = () => {
       }
       const fileName = formData['1-1'] ? formData['1-1'].replace(/[/\\?%*:|"<>]/g, '_') : '사업계획서';
       pdf.save(`${fileName}.pdf`);
-      // eslint-disable-next-line no-unused-vars
     } catch (e) {
       alert("PDF 생성 중 오류가 발생했습니다.");
     } finally {
@@ -196,7 +310,6 @@ const PlanEditor = () => {
     try {
       const response = await chatWithMentor(activeStep, formData, chatInput);
       setChatHistory(prev => [...prev, { role: 'assistant', content: response }]);
-      // eslint-disable-next-line no-unused-vars
     } catch (e) {
       setChatHistory(prev => [...prev, { role: 'assistant', content: "오류가 발생했습니다." }]);
     } finally {
@@ -215,7 +328,6 @@ const PlanEditor = () => {
       setPhase1Result(result);
       setShowPhase1Modal(true);
       if (result.passed) setMaxAllowedStep(Math.max(maxAllowedStep, 3));
-      // eslint-disable-next-line no-unused-vars
     } catch (e) { alert("오류 발생"); } finally { setLoading(false); }
   };
 
@@ -227,7 +339,6 @@ const PlanEditor = () => {
       setSimulation(result);
       setActiveTab('sim');
       setMaxAllowedStep(Math.max(maxAllowedStep, 4));
-      // eslint-disable-next-line no-unused-vars
     } catch (e) { alert("오류 발생"); } finally { setLoading(false); }
   };
 
@@ -242,6 +353,9 @@ const PlanEditor = () => {
         id: Number(projectId),
         title: formData['1-1'] || '제목 없는 프로젝트',
         formData,
+        checkedFields,
+        guidedQuestions,
+        autoGuidedFields,
         phase1Result,
         simulation,
         finalEval: result,
@@ -249,55 +363,47 @@ const PlanEditor = () => {
         isRecruiting
       };
       saveProject(currentStatus);
-      // eslint-disable-next-line no-unused-vars
     } catch (e) { alert("평가 실패"); } finally { setLoading(false); }
   };
 
   const renderFields = (step) => {
-    const fieldConfigs = {
-      1: [
-        { id: '1-1', label: '1-1. 창업 아이템의 명칭', placeholder: "예: AI 기반 맞춤형 식단 추천 서비스 '헬시메이트'" },
-        { id: '1-2', label: '1-2. 아이템의 핵심 기능 및 가치', placeholder: "예: 사용자의 혈액 검사 결과와 활동량을 분석하여, 실시간으로 최적의 점심 메뉴를 추천하고 재료 배송까지 연동하는 원스톱 헬스케어 솔루션입니다.", rows: 4 },
-        { id: '1-3', label: '1-3. 타겟 고객 및 시장 페르소나', placeholder: "예: 건강 관리에 관심이 많으나 바쁜 업무로 식단 조절에 어려움을 겪는 30대 IT 직장인 (강남/판교 거주자 중심)", rows: 4 }
-      ],
-      2: [
-        { id: '2-1', label: '2-1. 시장 현황 및 규모', placeholder: "예: 국내 디지털 헬스케어 시장은 연평균 15% 성장 중이며, 특히 구독형 식단 시장은 2025년 기준 2조 원 규모에 달할 것으로 전망됩니다.", rows: 4 },
-        { id: '2-2', label: '2-2. 경쟁사 분석', placeholder: "예: 'A사'는 칼로리 기록에 치중하고 있고, 'B사'는 범용적인 식단을 제공합니다. 우리 서비스는 개인의 생체 데이터를 직접 활용한다는 점이 다릅니다.", rows: 4 },
-        { id: '2-3', label: '2-3. 차별화 전략', placeholder: "예: 단순 기록을 넘어 AI가 '결정'까지 내려주는 실시간 추천 엔진과 병원 EMR 데이터 연동을 통한 독보적인 분석 정확도를 보유하고 있습니다.", rows: 4 }
-      ],
-      3: [
-        { id: '3-1', label: '3-1. 수익 구조 (Revenue Model)', placeholder: "예: 월 19,000원의 프리미엄 구독 멤버십, 식재료 판매에 따른 15% 수수료, 제휴 피트니스 센터 광고 수익", rows: 2 },
-        { id: '3-2', label: '3-2. 가격 정책', placeholder: "예: 베이직(무료 - 분석 전용), 프로(월 1.9만 - 식단 추천), 패밀리(월 4.5만 - 3인 가족 관리)", rows: 2 },
-        { id: '3-3', label: '3-3. 핵심 파트너십', placeholder: "예: 건강검진센터(데이터 API), 로컬 신선식품 물류 업체(당일 배송), 유명 헬스 유튜버(브랜딩)", rows: 2 }
-      ],
-      4: [
-        { id: '4-1', label: '4-1. 홍보 및 마케팅 방안', placeholder: "예: 직장인 타겟 오피스 밀집 지역 인스타그램 타겟 광고, 기업 사내 복지 시스템 연동을 통한 단체 유입 유도", rows: 4 },
-        { id: '4-2', label: '4-2. 초기 고객 확보 전략', placeholder: "예: 초기 1,000명에게 3개월 무료 체험권 제공 및 '혈액 분석 리포트' 바이럴 공유 캠페인 진행", rows: 4 }
-      ],
-      5: [
-        { id: '5-1', label: '5-1. 예상 매출 추정', placeholder: "예: 1년차 유료 구독자 5,000명 달성을 통한 연 매출 10억 원 목표, 영업이익률 20% 달성", rows: 4 },
-        { id: '5-2', label: '5-2. 초기 자본 조달 계획', placeholder: "예: 중기부 예비창업패키지 5천만 원 확보, 시드 투자 유치 2억 원 추진 중 (엔젤 매칭 펀드 활용)", rows: 4 }
-      ]
-    };
+    const currentStepFields = FIELD_DATA[step];
 
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-12 animate-fade-in">
         <h2 className="text-3xl font-black text-slate-800 mb-6 flex items-center gap-3">
           <span className="bg-blue-100 text-blue-600 p-2 rounded-xl">{STEPS[step-1].icon}</span>
           {STEPS[step-1].title}
         </h2>
-        {fieldConfigs[step].map(field => (
-          <div key={field.id} className="space-y-2">
-            <label className="block text-sm font-bold text-slate-600">{field.label}</label>
-            <textarea 
-              className="w-full p-4 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-700 shadow-sm"
-              rows={field.rows || 2}
-              placeholder={field.placeholder}
-              value={formData[field.id]}
-              onChange={(e) => handleInputChange(field.id, e.target.value)}
-            />
-          </div>
-        ))}
+        {currentStepFields.map((field, idx) => {
+          const isLastInStep = idx === currentStepFields.length - 1;
+          const nextField = currentStepFields[idx + 1];
+          return (
+            <div key={field.id} className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-bold text-slate-600">{field.label}</label>
+                <div className="flex items-center gap-2">
+                   {fieldLoading === field.id && <Loader2 size={16} className="animate-spin text-blue-600"/>}
+                   <button 
+                    onClick={() => handleCheck(field.id, nextField?.label || "", isLastInStep)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black transition-all ${checkedFields[field.id] ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                   >
+                     {checkedFields[field.id] ? <CheckCircle size={14}/> : <div className="w-3.5 h-3.5 border-2 border-slate-300 rounded-sm"/>}
+                     작성 완료
+                   </button>
+                </div>
+              </div>
+
+              <textarea 
+                className={`w-full p-6 bg-white border-2 rounded-[24px] outline-none transition-all text-slate-700 shadow-sm ${checkedFields[field.id] ? 'border-green-100 bg-green-50/10' : 'border-slate-100 focus:border-blue-500'}`}
+                rows={field.rows || 2}
+                placeholder={field.placeholder}
+                value={formData[field.id]}
+                onChange={(e) => handleInputChange(field.id, e.target.value)}
+              />
+            </div>
+          );
+        })}
         <div className="flex justify-end pt-8 border-t border-gray-100 mt-8">
           {step === 2 ? (
             <button onClick={handlePhase1Check} disabled={loading} className="bg-slate-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-slate-800 flex items-center gap-2 shadow-lg">
@@ -431,7 +537,7 @@ const PlanEditor = () => {
                                           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-slate-800' : 'bg-blue-600'} text-white shadow-md font-bold text-[10px]`}>
                                               {msg.role === 'user' ? 'U' : 'AI'}
                                           </div>
-                                          <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-none' : 'bg-white text-slate-700 rounded-tl-none border border-gray-100'}`}>
+                                          <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-none' : 'bg-white text-slate-700 rounded-tl-none border border-gray-100'}`}>
                                               {msg.content}
                                           </div>
                                       </div>
@@ -552,7 +658,7 @@ const PlanEditor = () => {
            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[100]">
                <div className="bg-white rounded-[48px] max-w-xl w-full p-12 shadow-2xl animate-fade-in text-center">
                    <h2 className="text-3xl font-black mb-4">평가 완료: {finalEval?.score}점</h2>
-                  <div className="p-5 bg-blue-50 rounded-2xl text-sm font-bold text-blue-700 mb-8">
+                 <div className="p-5 bg-blue-50 rounded-2xl text-sm font-bold text-blue-700 mb-8">
                    <div>💡 {finalEval?.advice}</div>
                    <br></br>
                    {finalEval?.score < 80 && (

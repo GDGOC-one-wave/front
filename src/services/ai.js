@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
 
-// eslint-disable-next-line no-undef
 const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 const isValidKey = apiKey && apiKey.startsWith('sk-');
 const openai = isValidKey ? new OpenAI({ apiKey, dangerouslyAllowBrowser: true }) : null;
@@ -9,7 +8,7 @@ const MOCK_DELAY = 1500;
 // 1. [Phase 1 검증]
 export const verifyPhase1 = async (step1Data, step2Data) => {
   if (!openai) {
-    await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY));
+    await new Promise(r => setTimeout(r, MOCK_DELAY));
     const isDetailed = Object.values(step1Data).join('').length > 30 && Object.values(step2Data).join('').length > 30;
     return {
       score: isDetailed ? 82 : 55,
@@ -20,7 +19,6 @@ export const verifyPhase1 = async (step1Data, step2Data) => {
       suggestions: isDetailed ? ["타겟 고객 세분화"] : ["경쟁사 분석 보완"]
     };
   }
-  // eslint-disable-next-line no-useless-catch
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
@@ -55,16 +53,13 @@ JSON 응답 형식:
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content);
-  } catch (error) {
-    console.error("verifyPhase1 Error:", error);
-    return { score: 0, passed: false, feedback: "분석 중 오류가 발생했습니다.", suggestions: [] };
-  }
+  } catch (error) { throw error; }
 };
 
 // 2. [BM 시뮬레이션]
 export const simulateBM = async (allData) => {
   if (!openai) {
-    await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY));
+    await new Promise(r => setTimeout(r, MOCK_DELAY));
     return {
       score: 85,
       status: "검증 설계 가능",
@@ -89,13 +84,11 @@ export const simulateBM = async (allData) => {
       riskFactor: "유사 AI 서비스의 빠른 등장이 위협 요인임"
     };
   }
-  // eslint-disable-next-line no-useless-catch
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
         { role: "system",
-// 기존 system content 부분을 아래로 교체
           content: `당신은 노련한 'Venture Builder'이자 'Growth Strategist'입니다.
 입력된 데이터(allData)를 바탕으로 비즈니스 모델의 현실성을 날카롭게 분석하고, 구체적인 수치 시뮬레이션을 수행하세요.
 
@@ -146,21 +139,14 @@ export const simulateBM = async (allData) => {
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content);
-  } catch (error) {
-    console.error("simulateBM Error:", error);
-    return null;
-  }
+  } catch (error) { throw error; }
 };
 
 // 3. [AI 챗봇]
 export const chatWithMentor = async (currentStep, formData, userMessage) => {
   if (!openai) return "네, 타겟 고객을 더 구체화해보세요.";
-  // eslint-disable-next-line no-useless-catch
   try {
-    const contextData = Object.entries(formData)
-      .filter(([k]) => k.startsWith(`${currentStep}-`))
-      .map(([k, v]) => `${k}: ${v}`)
-      .join('\n');
+    const contextData = Object.entries(formData).filter(([k]) => k.startsWith(`${currentStep}-`)).map(([k, v]) => `${k}: ${v}`).join('\n');
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
@@ -169,23 +155,19 @@ export const chatWithMentor = async (currentStep, formData, userMessage) => {
       ],
     });
     return completion.choices[0].message.content;
-  } catch (error) {
-    console.error("chatWithMentor Error:", error);
-    return "상담 서비스에 일시적인 오류가 발생했습니다.";
-  }
+  } catch (error) { throw error; }
 };
 
 // 4. [최종 평가]
 export const evaluatePlan = async (fullPlan) => {
   if (!openai) {
-    await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY));
+    await new Promise(r => setTimeout(r, MOCK_DELAY));
     return {
       score: 92,
       feedback: "매우 탄탄한 기획입니다. 초기 시장 진입 전략만 조금 더 다듬으면 투자 유치도 가능해 보입니다.",
       advice: "데모 데이 발표를 위해 장표를 시각화하는 단계로 넘어가세요.",
     };
   }
-  // eslint-disable-next-line no-useless-catch
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
@@ -220,23 +202,19 @@ JSON 응답 형식:
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content);
-  } catch (error) {
-    console.error("evaluatePlan Error:", error);
-    return { score: 0, feedback: "평가 중 오류가 발생했습니다.", advice: "" };
-  }
+  } catch (error) { throw error; }
 };
 
 // 5. [팀원 추천]
 export const suggestRoles = async (fullPlan) => {
   if (!openai) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise(r => setTimeout(r, 1000));
     return [
       { role: "프론트엔드 개발자", reason: "웹 서비스 구현 필수" },
       { role: "마케터", reason: "초기 유입 증대" },
       { role: "UI/UX 디자이너", reason: "사용자 경험 개선" }
     ];
   }
-  // eslint-disable-next-line no-useless-catch
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
@@ -247,8 +225,35 @@ export const suggestRoles = async (fullPlan) => {
       response_format: { type: "json_object" }
     });
     return JSON.parse(completion.choices[0].message.content).roles;
-  } catch (error) {
-    console.error("suggestRoles Error:", error);
-    return [];
+  } catch (error) { throw error; }
+};
+
+// 6. [방향성 유도 질문 생성]
+export const getGuidedQuestions = async (currentFieldId, nextFieldLabel, formData) => {
+  if (!openai) {
+    await new Promise(r => setTimeout(r, 800));
+    return [
+      `${nextFieldLabel}의 가장 핵심적인 가치는 무엇인가요?`,
+      "경쟁 서비스와 비교했을 때 어떤 점이 독보적인가요?",
+      "사용자가 이 기능을 처음 접했을 때 어떤 느낌을 받길 원하시나요?"
+    ];
   }
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [
+        { role: "system", content: `당신은 사업계획서 작성을 돕는 '전략 멘토'입니다. 
+사용자가 현재 항목을 작성 완료했습니다. 다음 항목인 [${nextFieldLabel}]을 작성할 때 고려해야 할 '날카롭고 구체적인 질문' 3가지를 생성하세요.
+이 질문들은 사용자가 논리적으로 앞뒤가 맞는 계획을 세울 수 있도록 유도해야 합니다. 답변은 반드시 존댓말로 해야합니다.
+
+응답은 반드시 아래의 JSON 형식을 따라야 합니다:
+{
+  "questions": ["질문1", "질문2", "질문3"]
+}` },
+        { role: "user", content: `현재까지 작성된 내용: ${JSON.stringify(formData)}\n다음 작성할 항목: ${nextFieldLabel}\n위 내용을 바탕으로 JSON 형식의 질문 3개를 생성해주세요.` }
+      ],
+      response_format: { type: "json_object" }
+    });
+    return JSON.parse(completion.choices[0].message.content).questions;
+  } catch (error) { return ["내용을 구체화해보세요.", "차별점은 무엇인가요?", "누구에게 필요한가요?"]; }
 };

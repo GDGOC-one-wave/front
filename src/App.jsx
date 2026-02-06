@@ -5,6 +5,8 @@ import PlanEditor from './pages/PlanEditor';
 import Recruitment from './pages/Recruitment';
 import MyPage from './pages/MyPage';
 
+import ProjectLounge from './pages/ProjectLounge';
+
 function App() {
   return (
     <BrowserRouter>
@@ -13,6 +15,7 @@ function App() {
         <Route path="/plan" element={<PlanEditor />} />
         <Route path="/recruitment" element={<Recruitment />} />
         <Route path="/mypage" element={<MyPage />} />
+        <Route path="/lounge" element={<ProjectLounge />} />
       </Routes>
     </BrowserRouter>
   );

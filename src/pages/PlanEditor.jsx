@@ -668,11 +668,15 @@ const PlanEditor = () => {
            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[100]">
                <div className="bg-white rounded-[48px] max-w-xl w-full p-12 shadow-2xl animate-fade-in text-center">
                    <h2 className="text-3xl font-black mb-4">평가 완료: {finalEval?.score}점</h2>
-                   <div className="p-5 bg-blue-50 rounded-2xl text-sm font-bold text-blue-700 mb-8">
-                       {finalEval?.score >= 80 ? `💡 멘토 조언: ${finalEval?.advice}` : "⚠️ 공고를 올리기에는 아이디어 구체성이 조금 부족합니다. 내용을 보완하여 80점 이상을 노려보세요!"}
-                   </div>
-                   
-                   {finalEval?.score >= 80 ? (
+                 <div className="p-5 bg-blue-50 rounded-2xl text-sm font-bold text-blue-700 mb-8">
+                   <div>💡 {finalEval?.advice}</div>
+                   <br></br>
+                   {finalEval?.score < 80 && (
+                       <div className="mt-2 text-red-500">⚠️ 공고를 올리기에는 아이디어 구체성이 조금 부족합니다. <br/>내용을 보완하여 80점 이상을 노려보세요!</div>
+                   )}
+                 </div>
+
+                 {finalEval?.score >= 80 ? (
                        <button onClick={() => navigate(`/recruitment/new?projectId=${projectId}`)} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 transition-all">팀원 모집 공고 올리기</button>
                    ) : (
                        <button disabled className="w-full bg-gray-100 text-gray-400 py-4 rounded-xl font-bold text-lg cursor-not-allowed">80점 미만 모집 불가</button>
@@ -687,3 +691,4 @@ const PlanEditor = () => {
 };
 
 export default PlanEditor;
+
